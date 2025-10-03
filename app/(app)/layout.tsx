@@ -3,6 +3,39 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Shell } from "@/components/layout/shell";
 
+type OptionRecord = {
+  id: string | number | null;
+  name?: string | null;
+};
+
+function isOptionRecord(value: unknown): value is OptionRecord {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const record = value as { id?: unknown };
+
+  return (
+    "id" in record &&
+    record.id !== undefined &&
+    (typeof record.id === "string" ||
+      typeof record.id === "number" ||
+      record.id === null)
+  );
+}
+
+function normalizeOptions(
+  records: OptionRecord[],
+  fallbackName: string
+): { id: string; name: string }[] {
+  return records
+    .filter((record) => record.id !== null && record.id !== undefined)
+    .map((record) => ({
+      id: String(record.id),
+      name: record.name ?? fallbackName,
+    }));
+}
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const supabase = supabaseServer();
   const {
@@ -23,31 +56,36 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   const role = profile?.role ?? "client_viewer";
 
-  let organizationsRaw: { id: any; name: any }[] = [];
+  let organizationsRaw: OptionRecord[] = [];
 
   if (role === "owner") {
-    organizationsRaw =
-      (
-        await supabase
-          .from("organizations")
-          .select("id, name")
-          .order("name")
-      ).data ?? [];
+    const { data: ownerOrganizations } = await supabase
+      .from("organizations")
+      .select("id, name")
+      .order("name");
+
+    organizationsRaw = (ownerOrganizations ?? []).filter(isOptionRecord);
   } else if (profile?.organization) {
-    organizationsRaw = Array.isArray(profile.organization)
-      ? profile.organization
-      : [profile.organization];
+    const organizationData = profile.organization;
+    const normalizedOrganizations = Array.isArray(organizationData)
+      ? organizationData
+      : [organizationData];
+
+    organizationsRaw = normalizedOrganizations.filter(isOptionRecord);
   }
 
-  const organizations = organizationsRaw.map((org) => ({
-    id: org.id,
-    name: org.name ?? "Unnamed organization",
-  }));
+  const organizations = normalizeOptions(
+    organizationsRaw,
+    "Unnamed organization"
+  );
 
   const activeOrgId =
-    profile?.organization_id ?? organizations?.[0]?.id ?? null;
+    profile?.organization_id !== undefined &&
+    profile?.organization_id !== null
+      ? String(profile.organization_id)
+      : organizations?.[0]?.id ?? null;
 
-  const coursesRaw = activeOrgId
+  const coursesRawData = activeOrgId
     ? (
         await supabase
           .from("courses")
@@ -57,10 +95,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       ).data ?? []
     : [];
 
-  const courses = coursesRaw.map((course) => ({
-    id: course.id,
-    name: course.name ?? "Course",
-  }));
+  const coursesRaw = (coursesRawData as unknown[]).filter(isOptionRecord);
+
+  const courses = normalizeOptions(coursesRaw, "Course");
 
   const activeCourseId = courses[0]?.id ?? null;
 
