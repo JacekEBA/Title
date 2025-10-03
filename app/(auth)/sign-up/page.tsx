@@ -5,9 +5,11 @@ import { FormEvent, useState } from "react";
 
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export default function ResetPasswordPage() {
+export default function SignUpPage() {
   const supabase = supabaseBrowser();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,29 +20,55 @@ export default function ResetPasswordPage() {
     setError(null);
     setLoading(true);
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
-    });
+    try {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: fullName ? { full_name: fullName } : undefined,
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      });
 
-    if (resetError) {
-      setError(resetError.message);
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      setStatus(
+        "Success! Check your inbox to confirm your account before signing in."
+      );
+      setFullName("");
+      setEmail("");
+      setPassword("");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setStatus("Check your inbox for a reset link.");
-    setLoading(false);
   }
 
   return (
     <div className="grid min-h-screen place-items-center px-4">
       <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-lg">
-        <h1 className="text-2xl font-semibold">Reset password</h1>
+        <h1 className="text-2xl font-semibold">Create an account</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Enter the email associated with your account and we&apos;ll send instructions.
+          Sign up to get access to the Title control center.
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="full-name">
+              Full name
+            </label>
+            <input
+              id="full-name"
+              type="text"
+              autoComplete="name"
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
+          </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="email">
               Email
@@ -53,6 +81,21 @@ export default function ResetPasswordPage() {
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="password">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              autoComplete="new-password"
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
             />
           </div>
 
@@ -73,17 +116,17 @@ export default function ResetPasswordPage() {
             className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={loading}
           >
-            {loading ? "Sending…" : "Send reset link"}
+            {loading ? "Creating account…" : "Create account"}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-muted-foreground">
-          Remembered your password?{" "}
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Already have an account?{" "}
           <Link className="font-medium text-primary" href="/login">
-            Back to sign in
+            Sign in
           </Link>
           .
-        </div>
+        </p>
       </div>
     </div>
   );
