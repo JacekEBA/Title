@@ -28,11 +28,11 @@ return (
 <span className="text-sm font-semibold">RCS Admin</span>
 </div>
 <nav className="mt-6 space-y-1">
-<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/app"> <LayoutDashboard className="inline h-4 w-4 mr-2"/> Overview</Link>
-<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/app/courses"> <ShieldCheck className="inline h-4 w-4 mr-2"/> Courses</Link>
-<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/app/calendar"> <CalendarDays className="inline h-4 w-4 mr-2"/> Calendar</Link>
-<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/app/analytics"> <BarChart3 className="inline h-4 w-4 mr-2"/> Analytics</Link>
-<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/app/settings"> <Settings className="inline h-4 w-4 mr-2"/> Settings</Link>
+<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/"> <LayoutDashboard className="inline h-4 w-4 mr-2"/> Overview</Link>
+<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/courses"> <ShieldCheck className="inline h-4 w-4 mr-2"/> Courses</Link>
+<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/calendar"> <CalendarDays className="inline h-4 w-4 mr-2"/> Calendar</Link>
+<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/analytics"> <BarChart3 className="inline h-4 w-4 mr-2"/> Analytics</Link>
+<Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/settings"> <Settings className="inline h-4 w-4 mr-2"/> Settings</Link>
 {profile?.role === "owner" && (
 <Link className="block rounded-xl border bg-card px-3 py-2 text-sm hover:bg-accent/60" href="/admin"> <ShieldCheck className="inline h-4 w-4 mr-2"/> Admin (Owner)</Link>
 )}
@@ -45,3 +45,4 @@ Signed in as {profile?.full_name || user.email}
 </div>
 );
 }
+
