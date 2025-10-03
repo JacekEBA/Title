@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -18,18 +19,22 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (signInError) {
-      setError(signInError.message);
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      router.replace("/dashboard");
+      router.refresh();
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.replace("/dashboard");
   }
 
   return (
@@ -86,9 +91,22 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Forgot your password? <a className="font-medium text-primary" href="/reset-password">Reset it</a>.
-        </p>
+        <div className="mt-6 space-y-2 text-center text-xs text-muted-foreground">
+          <p>
+            Don&apos;t have an account?{" "}
+            <Link className="font-medium text-primary" href="/sign-up">
+              Sign up
+            </Link>
+            .
+          </p>
+          <p>
+            Forgot your password?{" "}
+            <Link className="font-medium text-primary" href="/reset-password">
+              Reset it
+            </Link>
+            .
+          </p>
+        </div>
       </div>
     </div>
   );
