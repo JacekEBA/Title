@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* optional: global styles */
-body {
-  font-family: system-ui, sans-serif;
+:root {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --accent: 240 4.8% 95.9%;
+  --muted: 240 4.8% 95.9%;
 }
