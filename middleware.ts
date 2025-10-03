@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+
+import { getSupabaseCredentials } from "@/lib/supabase/env";
 
 const AUTH_ROUTES = new Set(["/login", "/reset-password"]);
 const PROTECTED_PREFIXES = [
@@ -18,7 +20,21 @@ const PROTECTED_PREFIXES = [
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+  const { url, anonKey } = getSupabaseCredentials();
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      get(name: string) {
+        return req.cookies.get(name)?.value;
+      },
+      set(name: string, value: string, options: CookieOptions) {
+        res.cookies.set({ name, value, ...(options ?? {}) });
+      },
+      remove(name: string, options: CookieOptions) {
+        res.cookies.set({ name, value: "", ...(options ?? {}) });
+      },
+    },
+  });
 
   await supabase.auth.getSession();
   const {
