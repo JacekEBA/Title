@@ -23,17 +23,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   const role = profile?.role ?? "client_viewer";
 
-  const organizationsRaw =
-    role === "owner"
-      ? (
-          await supabase
-            .from("organizations")
-            .select("id, name")
-            .order("name")
-        ).data ?? []
-      : profile?.organization
-      ? [profile.organization]
-      : [];
+  let organizationsRaw: { id: any; name: any }[] = [];
+
+  if (role === "owner") {
+    organizationsRaw =
+      (
+        await supabase
+          .from("organizations")
+          .select("id, name")
+          .order("name")
+      ).data ?? [];
+  } else if (profile?.organization) {
+    organizationsRaw = Array.isArray(profile.organization)
+      ? profile.organization
+      : [profile.organization];
+  }
 
   const organizations = organizationsRaw.map((org) => ({
     id: org.id,
