@@ -1,2 +1,4 @@
 import Courses from "@/components/Courses";
-export default function Page() { return <Courses/> }
+export default function Page() {
+  return <Courses />;
+}
