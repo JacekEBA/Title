@@ -5,20 +5,21 @@ import Link from "next/link";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard, Megaphone, BarChart3, CalendarDays, Plug, Settings,
-  ShieldCheck, Bell, Search
+  LayoutDashboard, GraduationCap, CalendarDays, BarChart3, Settings, ShieldCheck
 } from "lucide-react";
 
+// --- only existing routes here ---
 type NavItem = { href: Route; label: string; icon: LucideIcon };
-
 const NAV: NavItem[] = [
-  { href: "/dashboard",            label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/dashboard/campaigns",  label: "Campaigns",   icon: Megaphone },
-  { href: "/dashboard/analytics",  label: "Analytics",   icon: BarChart3 },
-  { href: "/dashboard/schedule",   label: "Schedule",    icon: CalendarDays },
-  { href: "/dashboard/integrations", label: "Integrations", icon: Plug },
-  { href: "/dashboard/settings",   label: "Settings",    icon: Settings },
+  { href: "/dashboard",          label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/courses",  label: "Courses",   icon: GraduationCap },
+  { href: "/dashboard/calendar", label: "Calendar",  icon: CalendarDays },
+  { href: "/dashboard/analytics",label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/settings", label: "Settings",  icon: Settings },
 ];
+// Admin stays conditional:
+{/* {profile?.role === "owner" && <NavLink href={"/dashboard/admin"} label="Admin (Owner)"} icon={ShieldCheck} />} */}
+
 
 const NavLink = ({ href, icon: Icon, label }: NavItem) => (
   <Link
