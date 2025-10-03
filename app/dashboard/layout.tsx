@@ -5,21 +5,27 @@ import Link from "next/link";
 import type { Route } from "next";
 import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard, GraduationCap, CalendarDays, BarChart3, Settings, ShieldCheck
+  LayoutDashboard,
+  GraduationCap,
+  CalendarDays,
+  BarChart3,
+  Settings,
+  ShieldCheck,
+  Bell,     // ✅ add
+  Search,   // ✅ add
 } from "lucide-react";
 
-// --- only existing routes here ---
+// Only existing routes (typedRoutes-safe)
 type NavItem = { href: Route; label: string; icon: LucideIcon };
 const NAV: NavItem[] = [
-  { href: "/dashboard",          label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/courses",  label: "Courses",   icon: GraduationCap },
-  { href: "/dashboard/calendar", label: "Calendar",  icon: CalendarDays },
-  { href: "/dashboard/analytics",label: "Analytics", icon: BarChart3 },
-  { href: "/dashboard/settings", label: "Settings",  icon: Settings },
+  { href: "/dashboard",           label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/courses",   label: "Courses",   icon: GraduationCap },
+  { href: "/dashboard/calendar",  label: "Calendar",  icon: CalendarDays },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/dashboard/settings",  label: "Settings",  icon: Settings },
 ];
-// Admin stays conditional:
-{/* {profile?.role === "owner" && <NavLink href={"/dashboard/admin"} label="Admin (Owner)"} icon={ShieldCheck} />} */}
 
+// Admin stays conditional (shown below inside JSX)
 
 const NavLink = ({ href, icon: Icon, label }: NavItem) => (
   <Link
@@ -53,7 +59,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </div>
 
         <nav className="mt-6 space-y-2">
-          {NAV.map((n) => <NavLink key={n.href} {...n} />)}
+          {NAV.map((n) => (
+            <NavLink key={n.href} {...n} />
+          ))}
           {profile?.role === "owner" && (
             <NavLink href={"/dashboard/admin"} label="Admin (Owner)" icon={ShieldCheck} />
           )}
@@ -77,7 +85,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   placeholder="Search…"
                 />
               </div>
-              <button className="inline-flex h-9 w-9 items-center justify-center rounded-md border bg-card hover:bg-accent/60" aria-label="Notifications">
+              <button
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border bg-card hover:bg-accent/60"
+                aria-label="Notifications"
+              >
                 <Bell className="h-4 w-4" />
               </button>
               <div className="h-9 w-9 rounded-full bg-emerald-600/90" />
