@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
+const ADMIN_ROLES = new Set(["owner", "client_admin"]);
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,6 +16,35 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = supabaseBrowser();
 
+  async function routeByRole() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    // fetch role from profiles
+    let { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!profile) {
+      // self-heal (new installs / legacy users)
+      await supabase.rpc("ensure_profile_for_me");
+      ({ data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single());
+    }
+
+    const role = profile?.role ?? "client_admin"; // default new signups to admin per trigger
+    const isAdmin = ADMIN_ROLES.has(role);
+    router.replace(isAdmin ? "/dashboard/admin" : "/dashboard/client");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
@@ -22,20 +53,27 @@ export default function LoginPage() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName || email.split("@")[0] } },
-        });
-        if (error) throw error;
-
-        // Ensure the profile exists (trigger should have done it; this is a safe no-op if it already exists)
-        const { error: rpcErr } = await supabase.rpc("ensure_profile_for_me");
-        if (rpcErr) console.warn("ensure_profile_for_me:", rpcErr.message);
+        await routeByRole();
+        return;
       }
 
-      router.replace("/dashboard");
+      // SIGN UP
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName || email.split("@")[0] } },
+      });
+      if (error) throw error;
+
+      // If email confirmations are ON, session will be null until they click the link
+      if (!data.session) {
+        setErr("Check your email to confirm your account, then sign in.");
+        return;
+      }
+
+      // make sure the profile exists, then route
+      await supabase.rpc("ensure_profile_for_me");
+      await routeByRole();
     } catch (e: any) {
       setErr(e.message ?? "Something went wrong");
     } finally {
