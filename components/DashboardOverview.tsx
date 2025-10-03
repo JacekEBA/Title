@@ -6,6 +6,7 @@ import {
   BarChart3,
   Users,
   ChevronDown,
+  Building2,
 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -130,3 +131,4 @@ export default function DashboardOverview() {
     </div>
   );
 }
+
