@@ -6,7 +6,11 @@ import { Building2, CalendarDays, LayoutDashboard, BarChart3, Settings, ShieldCh
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null; // middleware handles redirects
+
+  if (!user) {
+    // middleware will redirect anyway, but don't 404
+    return <div className="p-6">Redirecting to login...</div>;
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -51,4 +55,3 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     </div>
   );
 }
-
