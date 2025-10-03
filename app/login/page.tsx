@@ -13,42 +13,39 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
   const router = useRouter();
   const supabase = supabaseBrowser();
 
   async function routeByRole() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
+    if (!user) { router.replace("/login"); return; }
 
-    // fetch role from profiles
-    let { data: profile } = await supabase
+    let { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("user_id", user.id)
       .single();
 
     if (!profile) {
-      // self-heal (new installs / legacy users)
+      // self-heal for brand new users
       await supabase.rpc("ensure_profile_for_me");
-      ({ data: profile } = await supabase
+      ({ data: profile, error } = await supabase
         .from("profiles")
         .select("role")
         .eq("user_id", user.id)
         .single());
     }
 
-    const role = profile?.role ?? "client_admin"; // default new signups to admin per trigger
-    const isAdmin = ADMIN_ROLES.has(role);
-    router.replace(isAdmin ? "/dashboard/admin" : "/dashboard/client");
+    const role = profile?.role ?? "client_admin";
+    router.replace(ADMIN_ROLES.has(role) ? "/dashboard/admin" : "/dashboard/client");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
+
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -65,13 +62,12 @@ export default function LoginPage() {
       });
       if (error) throw error;
 
-      // If email confirmations are ON, session will be null until they click the link
+      // If email confirmations are ON, there won't be a session yet.
       if (!data.session) {
         setErr("Check your email to confirm your account, then sign in.");
         return;
       }
 
-      // make sure the profile exists, then route
       await supabase.rpc("ensure_profile_for_me");
       await routeByRole();
     } catch (e: any) {
