@@ -22,11 +22,25 @@ export function supabaseServer() {
       },
       set(name: string, value: string, options: any) {
         console.debug("[supabaseServer.cookies.set]", name);
-        cookieStore.set({ name, value, ...options });
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch (error) {
+          console.warn(
+            "[supabaseServer.cookies.set] unable to set cookie (likely invoked outside a Server Action or Route Handler)",
+            error
+          );
+        }
       },
       remove(name: string, options: any) {
         console.debug("[supabaseServer.cookies.remove]", name);
-        cookieStore.set({ name, value: "", ...options });
+        try {
+          cookieStore.set({ name, value: "", ...options });
+        } catch (error) {
+          console.warn(
+            "[supabaseServer.cookies.remove] unable to remove cookie (likely invoked outside a Server Action or Route Handler)",
+            error
+          );
+        }
       },
     },
   });
