@@ -1,4 +1,5 @@
 import { requireProfile } from "@/lib/auth";
+import { LogoutButton } from "./_components/logout-button";
 
 export default async function SettingsPage() {
   const {
@@ -73,6 +74,16 @@ export default async function SettingsPage() {
               <p className="text-xs text-muted-foreground">Status: Connected</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Account</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Sign out of your account and return to the login page.
+        </p>
+        <div className="mt-4">
+          <LogoutButton />
         </div>
       </section>
     </div>
