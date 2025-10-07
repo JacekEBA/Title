@@ -1,16 +1,18 @@
 import '../../styles/globals.css';
 import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { landingRedirectPath } from '../../lib/auth';
+import { createSupabaseActionClient } from '../../lib/supabase/server';
 
 export default async function Page() {
   async function signIn(formData: FormData) {
     'use server';
-    const supabase = createSupabaseServerClient();
+    const supabase = createSupabaseActionClient();
     const email = String(formData.get('email') || '');
     const password = String(formData.get('password') || '');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+
+    // After auth, cookies are set by the action client; now decide landing.
     const path = await landingRedirectPath();
     redirect(path);
   }
