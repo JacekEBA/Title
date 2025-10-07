@@ -1,8 +1,13 @@
-"use client";
+'use client';
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, type FormEvent } from 'react';
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+type FieldProps = {
+  label: string;
+  children: ReactNode;
+};
+
+function Field({ label, children }: FieldProps) {
   return (
     <label className="block space-y-1">
       <span className="text-sm font-medium">{label}</span>
@@ -11,10 +16,26 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-type Props = {
-  orgOptions: Array<{ id: string; name: string }>;
-  courseOptionsByOrg: Record<string, Array<{ id: string; name: string; timezone: string }>>;
-  templateOptionsByOrg: Record<string, Array<{ id: string; name: string }>>;
+type OrgOption = {
+  id: string;
+  name: string;
+};
+
+type CourseOption = {
+  id: string;
+  name: string;
+  timezone: string;
+};
+
+type TemplateOption = {
+  id: string;
+  name: string;
+};
+
+type AddPromoModalProps = {
+  orgOptions: OrgOption[];
+  courseOptionsByOrg: Record<string, CourseOption[]>;
+  templateOptionsByOrg: Record<string, TemplateOption[]>;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -23,18 +44,18 @@ export default function AddPromoModal({
   courseOptionsByOrg,
   templateOptionsByOrg,
   action,
-}: Props) {
+}: AddPromoModalProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [orgId, setOrgId] = useState("");
-  const [courseId, setCourseId] = useState("");
-  const [templateId, setTemplateId] = useState("");
+  const [orgId, setOrgId] = useState('');
+  const [courseId, setCourseId] = useState('');
+  const [templateId, setTemplateId] = useState('');
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [timezone, setTimezone] = useState("");
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [timezone, setTimezone] = useState('');
 
   // Get courses and templates for selected org
   const courses = orgId ? (courseOptionsByOrg[orgId] ?? []) : [];
@@ -42,56 +63,84 @@ export default function AddPromoModal({
 
   // Reset dependent fields when org changes
   useEffect(() => {
-    setCourseId("");
-    setTemplateId("");
-    setTimezone("");
+    setCourseId('');
+    setTemplateId('');
+    setTimezone('');
   }, [orgId]);
 
   // Update timezone when course changes
   useEffect(() => {
     const course = courses.find((c) => c.id === courseId);
-    setTimezone(course?.timezone ?? "");
+    setTimezone(course?.timezone ?? '');
   }, [courseId, courses]);
 
   const resetForm = () => {
-    setOrgId("");
-    setCourseId("");
-    setTemplateId("");
-    setName("");
-    setDescription("");
-    setScheduledAt("");
-    setTimezone("");
+    setOrgId('');
+    setCourseId('');
+    setTemplateId('');
+    setName('');
+    setDescription('');
+    setScheduledAt('');
+    setTimezone('');
   };
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  const handleClose = () => {
+    if (loading) return;
+    resetForm();
+    setOpen(false);
+  };
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!orgId) return alert("Please choose an Organization.");
-    if (!courseId) return alert("Please choose a Course.");
-    if (!templateId) return alert("Please choose a Template.");
-    if (!name.trim()) return alert("Please enter a Campaign Name.");
-    if (!scheduledAt) return alert("Please pick a Scheduled time.");
-    if (!timezone) return alert("Missing timezone (comes from Course).");
+
+    // Validation
+    if (!orgId) {
+      alert('Please choose an Organization.');
+      return;
+    }
+    if (!courseId) {
+      alert('Please choose a Course.');
+      return;
+    }
+    if (!templateId) {
+      alert('Please choose a Template.');
+      return;
+    }
+    if (!name.trim()) {
+      alert('Please enter a Campaign Name.');
+      return;
+    }
+    if (!scheduledAt) {
+      alert('Please pick a Scheduled time.');
+      return;
+    }
+    if (!timezone) {
+      alert('Missing timezone (comes from Course).');
+      return;
+    }
 
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.set("org_id", orgId);
-      formData.set("course_id", courseId);
-      formData.set("template_id", templateId);
-      formData.set("name", name);
-      formData.set("description", description);
-      formData.set("scheduled_at", scheduledAt);
-      formData.set("timezone", timezone);
+      formData.set('org_id', orgId);
+      formData.set('course_id', courseId);
+      formData.set('template_id', templateId);
+      formData.set('name', name);
+      formData.set('description', description);
+      formData.set('scheduled_at', scheduledAt);
+      formData.set('timezone', timezone);
 
       await action(formData);
 
-      alert("Campaign scheduled!");
+      alert('Campaign scheduled successfully!');
       resetForm();
       setOpen(false);
-      window.location.reload(); // Reload to show new event
+      window.location.reload();
     } catch (error) {
-      console.error(error);
-      alert(`Failed to create campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Failed to create campaign:', error);
+      const message =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to create campaign: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -105,31 +154,37 @@ export default function AddPromoModal({
           resetForm();
           setOpen(true);
         }}
+        type="button"
       >
         Add RCS Promo
       </button>
+
       {open && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <button
-              type="button"
-              className="btn mb-2"
-              onClick={() => {
-                resetForm();
-                setOpen(false);
-              }}
-              disabled={loading}
-            >
-              Back
-            </button>
-            <h3 className="section-title">Schedule RCS Promo</h3>
-            <form onSubmit={handleSubmit} className="space-y-4 p-4">
+        <div className="modal-overlay" onClick={handleClose}>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="section-title mb-0">Schedule RCS Promo</h2>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleClose}
+                disabled={loading}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Organization">
                 <select
                   value={orgId}
-                  onChange={(event) => setOrgId(event.target.value)}
-                  className="w-full border rounded p-2"
+                  onChange={(e) => setOrgId(e.target.value)}
+                  className="input"
                   required
+                  disabled={loading}
                 >
                   <option value="">Select organization…</option>
                   {orgOptions.map((org) => (
@@ -143,13 +198,13 @@ export default function AddPromoModal({
               <Field label="Course (required)">
                 <select
                   value={courseId}
-                  onChange={(event) => setCourseId(event.target.value)}
-                  className="w-full border rounded p-2"
+                  onChange={(e) => setCourseId(e.target.value)}
+                  className="input"
                   required
-                  disabled={!orgId}
+                  disabled={!orgId || loading}
                 >
                   <option value="">
-                    {!orgId ? "Select organization first…" : "Select course…"}
+                    {!orgId ? 'Select organization first…' : 'Select course…'}
                   </option>
                   {courses.map((course) => (
                     <option key={course.id} value={course.id}>
@@ -162,13 +217,15 @@ export default function AddPromoModal({
               <Field label="Template">
                 <select
                   value={templateId}
-                  onChange={(event) => setTemplateId(event.target.value)}
-                  className="w-full border rounded p-2"
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="input"
                   required
-                  disabled={!orgId}
+                  disabled={!orgId || loading}
                 >
                   <option value="">
-                    {!orgId ? "Select organization first…" : "Select RCS template…"}
+                    {!orgId
+                      ? 'Select organization first…'
+                      : 'Select RCS template…'}
                   </option>
                   {templates.map((template) => (
                     <option key={template.id} value={template.id}>
@@ -181,20 +238,22 @@ export default function AddPromoModal({
               <Field label="Campaign Name">
                 <input
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  className="w-full border rounded p-2"
+                  onChange={(e) => setName(e.target.value)}
+                  className="input"
                   placeholder="Weekend Promo Blast"
                   required
+                  disabled={loading}
                 />
               </Field>
 
               <Field label="Description (optional)">
                 <textarea
                   value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  className="w-full border rounded p-2"
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="input"
                   rows={3}
                   placeholder="Short internal note…"
+                  disabled={loading}
                 />
               </Field>
 
@@ -202,30 +261,37 @@ export default function AddPromoModal({
                 <input
                   type="datetime-local"
                   value={scheduledAt}
-                  onChange={(event) => setScheduledAt(event.target.value)}
-                  className="w-full border rounded p-2"
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className="input"
                   required
+                  disabled={loading}
                 />
               </Field>
 
               <Field label="Timezone (auto from Course)">
-                <input value={timezone} readOnly className="w-full border rounded p-2 bg-gray-50" />
+                <input
+                  value={timezone}
+                  readOnly
+                  className="input bg-muted"
+                  disabled={loading}
+                />
               </Field>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-4">
                 <button
                   type="button"
                   className="btn"
-                  onClick={() => {
-                    resetForm();
-                    setOpen(false);
-                  }}
+                  onClick={handleClose}
                   disabled={loading}
                 >
                   Cancel
                 </button>
-                <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-black text-white disabled:opacity-60">
-                  {loading ? "Saving…" : "Schedule Campaign"}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary"
+                >
+                  {loading ? 'Saving…' : 'Schedule Campaign'}
                 </button>
               </div>
             </form>
