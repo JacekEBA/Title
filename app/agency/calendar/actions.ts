@@ -77,7 +77,7 @@ export async function createPromoAction(input: CreatePromoInput) {
       org_id: input.org_id,
       course_id: input.course_id,
       event_type: 'campaign_send' as const,
-      campaign_id: campaign.id,
+      campaign_id: (campaign as { id: string }).id,
       title: input.name.trim(),
       description: input.description?.trim() || null,
       start_time: input.scheduled_at,
