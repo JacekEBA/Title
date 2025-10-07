@@ -12,13 +12,15 @@ type EnrichedEvent = {
   end: string;
   description: string | null;
   orgId: string;
-  courseId: string | null;
-  campaignId: string | null;
+  courseId: string;
+  campaignId: string;
+  templateId: string;
   status: string;
   orgName: string;
   courseName: string;
   templateName: string;
   scheduledAt: string;
+  timezone: string;
   campaignStatus: string;
 };
 
