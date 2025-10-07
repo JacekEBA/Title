@@ -92,6 +92,7 @@ export async function createPromoAction(input: CreatePromoInput) {
     if (eventError) {
       console.error('Calendar event creation error:', eventError);
       // Attempt to clean up campaign
+      // @ts-ignore Supabase type inference issue
       await supabase.from('campaigns').delete().eq('id', (campaign as { id: string }).id);
       throw new Error(
         eventError.message || 'Failed to create calendar event'
