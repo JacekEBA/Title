@@ -92,7 +92,7 @@ export async function getCalendarEventsForOwner({ from, to }: { from: string; to
 
   let query = supabase
     .from('calendar_events')
-    .select('id, title, start_time, end_time, org_id, course_id')
+    .select('id, title, description, start_time, end_time, org_id, course_id, campaign_id, event_status')
     .gte('start_time', from)
     .lte('start_time', to)
     .order('start_time', { ascending: true });
