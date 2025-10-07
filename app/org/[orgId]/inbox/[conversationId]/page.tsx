@@ -1,16 +1,30 @@
-import '../../../../../styles/globals.css';
-import ChatThread from '../../../../../components/ChatThread';
-import MessageComposer from '../../../../../components/MessageComposer';
-import { requireOrgAccess } from '../../../../../lib/auth';
-import { sendRcsMessage } from '../../../../../lib/pinnacle';
-import { createSupabaseServerClient, createSupabaseActionClient } from '../../../../../lib/supabase/server';
+import { requireOrgAccess } from '@/lib/auth';
+import { sendRcsMessage } from '@/lib/pinnacle';
+import {
+  createSupabaseServerClient,
+  createSupabaseActionClient,
+} from '@/lib/supabase/server';
+import OrgNav from '@/components/OrgNav';
+import ChatThread from '@/components/ChatThread';
+import MessageComposer from '@/components/MessageComposer';
 
-export default async function Page({
-  params,
-}: {
-  params: { orgId: string; conversationId: string };
-}) {
+type Params = {
+  params: {
+    orgId: string;
+    conversationId: string;
+  };
+};
+
+type Message = {
+  id: string;
+  direction: string;
+  body: string | null;
+  created_at: string;
+};
+
+export default async function ConversationPage({ params }: Params) {
   await requireOrgAccess(params.orgId);
+
   const supabase = createSupabaseServerClient();
   const { data: messages } = await supabase
     .from('messages')
@@ -18,34 +32,50 @@ export default async function Page({
     .eq('conversation_id', params.conversationId)
     .order('created_at', { ascending: true });
 
+  const typedMessages = (messages as Message[]) ?? [];
+
   async function sendMessageAction(formData: FormData) {
     'use server';
+
     const supa = createSupabaseActionClient();
     const conversationId = String(formData.get('conversation_id'));
     const body = String(formData.get('body') || '');
 
-    const convRow = await supa
+    if (!body.trim()) {
+      throw new Error('Message body is required');
+    }
+
+    // Get conversation details
+    const { data: conversation, error: convError } = await supa
       .from('conversations')
       .select('id, org_id, course_id, contact_id, contacts:contact_id(phone)')
       .eq('id', conversationId)
       .single();
-    if (convRow.error || !convRow.data) throw new Error('Conversation not found');
 
-    const message = await supa
+    if (convError || !conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // Insert message into database
+    const { error: messageError } = await supa
       .from('messages')
       .insert({
         conversation_id: conversationId,
-        org_id: convRow.data.org_id,
-        course_id: convRow.data.course_id,
-        contact_id: convRow.data.contact_id,
+        org_id: conversation.org_id,
+        course_id: conversation.course_id,
+        contact_id: conversation.contact_id,
         direction: 'outbound',
         kind: 'text',
         body,
       })
       .select('id')
       .single();
-    if (message.error) throw message.error;
 
+    if (messageError) {
+      throw messageError;
+    }
+
+    // Update conversation
     await supa
       .from('conversations')
       .update({
@@ -55,20 +85,24 @@ export default async function Page({
       })
       .eq('id', conversationId);
 
-    const phone = convRow.data.contacts?.phone;
-    if (!phone) throw new Error('Contact phone missing');
+    // Send via RCS
+    const phone = (conversation.contacts as any)?.phone;
+    if (!phone) {
+      throw new Error('Contact phone missing');
+    }
 
     const result = await sendRcsMessage({
-      orgId: convRow.data.org_id,
+      orgId: conversation.org_id,
       toPhoneE164: phone,
       payload: { text: body },
     });
 
+    // Record the send
     await supa.from('message_sends').insert({
-      org_id: convRow.data.org_id,
-      course_id: convRow.data.course_id,
+      org_id: conversation.org_id,
+      course_id: conversation.course_id,
       campaign_id: null,
-      contact_id: convRow.data.contact_id,
+      contact_id: conversation.contact_id,
       provider_message_id: result?.message_id ?? null,
       status: 'sent',
       sent_at: new Date().toISOString(),
@@ -78,26 +112,25 @@ export default async function Page({
 
   return (
     <div className="container">
-      <div className="tabbar">
-        <a className="btn" href={`/org/${params.orgId}`}>
-          Dashboard
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/calendar`}>
-          Calendar
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/courses`}>
-          Courses
-        </a>
-        <a className="btn btn-primary" href={`/org/${params.orgId}/inbox`}>
-          Inbox
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/settings`}>
-          Settings
-        </a>
+      <OrgNav orgId={params.orgId} currentPath="inbox" />
+
+      <h1 className="text-2xl font-bold mb-6">Conversation</h1>
+
+      <div className="space-y-4">
+        <div className="card">
+          <ChatThread
+            conversationId={params.conversationId}
+            initialMessages={typedMessages}
+          />
+        </div>
+
+        <div className="card">
+          <MessageComposer
+            conversationId={params.conversationId}
+            action={sendMessageAction}
+          />
+        </div>
       </div>
-      <h2>Conversation</h2>
-      <ChatThread conversationId={params.conversationId} initialMessages={messages ?? []} />
-      <MessageComposer conversationId={params.conversationId} action={sendMessageAction} />
     </div>
   );
 }
