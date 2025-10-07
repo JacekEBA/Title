@@ -1,7 +1,9 @@
 'use server';
 
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { createSupabaseActionClient } from '@/lib/supabase/server';
+import { landingRedirectPath } from '@/lib/auth';
 
 type ActionState = { ok: boolean; message?: string };
 
@@ -23,7 +25,9 @@ export async function signInAction(_prev: ActionState, formData: FormData): Prom
   if (error) {
     return { ok: false, message: 'Wrong email or password.' };
   }
-  return { ok: true };
+
+  const path = await landingRedirectPath();
+  redirect(path);
 }
 
 export async function signUpAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -32,7 +36,7 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   const supabase = createSupabaseActionClient();
 
   const redirectTo = `${appOrigin()}/reset-password`;
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { emailRedirectTo: redirectTo },
@@ -40,11 +44,19 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
 
   if (error) {
     const already = error.message?.toLowerCase().includes('already');
-    return { ok: false, message: already ? 'You already have an account. Please sign in.' : error.message };
+    return {
+      ok: false,
+      message: already ? 'You already have an account. Please sign in.' : error.message,
+    };
   }
+
+  if (data?.user && Array.isArray((data as any).user.identities) && (data as any).user.identities.length === 0) {
+    return { ok: false, message: 'You already have an account. Please sign in.' };
+  }
+
   return {
     ok: true,
-    message: 'Check your email to confirm your account. After confirming, you can sign in.',
+    message: 'Check your email to confirm your account, then sign in.',
   };
 }
 
@@ -66,6 +78,6 @@ export async function updatePasswordAction(_prev: ActionState, formData: FormDat
 
   const supabase = createSupabaseActionClient();
   const { error } = await supabase.auth.updateUser({ password });
-  if (error) return { ok: false, message: 'Could not update password. Please try the link again.' };
+  if (error) return { ok: false, message: 'Could not update password. Please open the reset link again.' };
   return { ok: true, message: 'Password updated! You can sign in now.' };
 }
