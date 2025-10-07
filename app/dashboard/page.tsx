@@ -1,21 +1,23 @@
-import '../../styles/globals.css';
 import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '../../lib/supabase/server';
+import Link from 'next/link';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+
+type Organization = {
+  id: string;
+  name: string;
+};
 
 /**
- * Org chooser + landing router.
+ * Organization chooser + landing router.
  *
  * If ?pickOrg=1 is present, always show chooser.
  *
  * Otherwise:
- *
- * owner/agency_staff -> /agency
- *
- * exactly one org -> /org/[orgId]
- *
- * else -> show chooser
+ * - owner/agency_staff -> /agency
+ * - exactly one org -> /org/[orgId]
+ * - else -> show chooser
  */
-export default async function Page({
+export default async function DashboardPage({
   searchParams,
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -24,55 +26,79 @@ export default async function Page({
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) redirect('/login');
+  
+  if (!session) {
+    redirect('/login');
+  }
 
   const forcePick = String(searchParams?.pickOrg ?? '') === '1';
 
-  const { data: profile } = await supabase.from('profiles').select('role').maybeSingle();
-  const { data: mems } = await supabase
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .maybeSingle();
+
+  const { data: memberships } = await supabase
     .from('org_memberships')
     .select('org_id, role, organizations:org_id(id, name)')
     .order('created_at', { ascending: true });
 
-  const roles = (mems ?? []).map((m) => m.role);
+  const roles = (memberships ?? []).map((m) => m.role);
+
+  // Redirect logic
   if (!forcePick) {
-    if (profile?.role === 'owner' || roles.includes('owner') || roles.includes('agency_staff')) {
+    if (
+      profile?.role === 'owner' ||
+      roles.includes('owner') ||
+      roles.includes('agency_staff')
+    ) {
       redirect('/agency');
     }
-    if ((mems ?? []).length === 1) {
-      const membership = mems?.[0];
-      if (membership) {
+
+    if ((memberships ?? []).length === 1) {
+      const membership = memberships?.[0];
+      if (membership?.org_id) {
         redirect(`/org/${membership.org_id}`);
       }
     }
   }
 
-  const orgs = (mems ?? [])
+  // Extract organizations
+  const organizations = (memberships ?? [])
     .map((m) => m.organizations)
-    .filter(Boolean) as { id: string; name: string }[];
+    .filter((org): org is Organization => Boolean(org));
 
   return (
     <div className="container">
-      <div className="card" style={{ maxWidth: 720, margin: '60px auto' }}>
-        <h2>Select an organization</h2>
-        <p>Choose which client dashboard you want to open.</p>
-        <div className="row" style={{ marginTop: 12 }}>
-          {orgs.length === 0 && <div>No organizations yet.</div>}
-          {orgs.map((o) => (
-            <div className="card col" key={o.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <strong>{o.name}</strong>
-                <a className="btn btn-primary" href={`/org/${o.id}`}>
-                  Open
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 16 }}>
-          <a className="btn" href="/agency">
+      <div className="card mx-auto mt-16 max-w-2xl">
+        <h1 className="text-2xl font-bold mb-2">Select an organization</h1>
+        <p className="text-muted-foreground mb-6">
+          Choose which client dashboard you want to open.
+        </p>
+
+        {organizations.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No organizations yet.
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {organizations.map((org) => (
+              <Link
+                key={org.id}
+                href={`/org/${org.id}`}
+                className="card flex items-center justify-between hover:border-primary transition-colors"
+              >
+                <strong className="text-lg">{org.name}</strong>
+                <span className="btn btn-primary">Open</span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-6 pt-6 border-t border-border">
+          <Link href="/agency" className="btn">
             Go to Agency view
-          </a>
+          </Link>
         </div>
       </div>
     </div>
