@@ -1,26 +1,43 @@
-import '../../../../styles/globals.css';
-import { requireOrgAccess } from '../../../../lib/auth';
+import Link from 'next/link';
+import { requireOrgAccess } from '@/lib/auth';
+import OrgNav from '@/components/OrgNav';
 
-export default async function Page({ params }: { params: { orgId: string } }) {
+type Params = {
+  params: {
+    orgId: string;
+  };
+};
+
+export default async function OrgSettingsPage({ params }: Params) {
   await requireOrgAccess(params.orgId);
+
   return (
     <div className="container">
-      <div className="tabbar">
-        <a className="btn" href={`/org/${params.orgId}`}>
-          Dashboard
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/calendar`}>
-          Calendar
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/courses`}>
-          Courses
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/inbox`}>
-          Inbox
-        </a>
-        <a className="btn btn-primary">Settings</a>
+      <OrgNav orgId={params.orgId} currentPath="settings" />
+
+      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+
+      <div className="space-y-6">
+        <div className="card">
+          <h2 className="section-title">RCS Brand Verification</h2>
+          <p className="text-muted-foreground mb-4">
+            Verify your brand to send RCS messages to customers.
+          </p>
+          <Link
+            href={`/org/${params.orgId}/settings/verification`}
+            className="btn btn-primary"
+          >
+            Start Verification Process
+          </Link>
+        </div>
+
+        <div className="card">
+          <h2 className="section-title">Organization Details</h2>
+          <p className="text-muted-foreground">
+            Contact your agency administrator to update organization settings.
+          </p>
+        </div>
       </div>
-      <div className="card">Coming soon</div>
     </div>
   );
 }
