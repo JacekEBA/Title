@@ -1,143 +1,209 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '../../../../lib/supabase/server';
-import { verifyPinnacleSignature } from '../../../../lib/pinnacle';
+import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { verifyPinnacleSignature } from '@/lib/pinnacle';
 
 export const runtime = 'nodejs';
 
+type PinnacleEvent = {
+  id?: string;
+  event_id?: string;
+  type: string;
+  brand_id?: string;
+  from?: {
+    phone?: string;
+  };
+  message?: {
+    id?: string;
+  };
+  text?: string;
+  reason?: string;
+};
+
 export async function POST(req: NextRequest) {
-  const rawBody = await req.text();
-  const signature = req.headers.get('x-pinnacle-signature') ?? req.headers.get('X-Pinnacle-Signature');
-  if (!verifyPinnacleSignature(rawBody, signature)) {
-    return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
-  }
+  try {
+    const rawBody = await req.text();
+    const signature =
+      req.headers.get('x-pinnacle-signature') ??
+      req.headers.get('X-Pinnacle-Signature');
 
-  const event = JSON.parse(rawBody);
-  const admin = createSupabaseAdminClient();
-
-  const externalId = event.id ?? event.event_id ?? event.message?.id ?? null;
-  if (externalId) {
-    const existing = await admin
-      .from('webhook_events')
-      .select('id')
-      .eq('external_event_id', externalId)
-      .maybeSingle();
-    if (existing.data) {
-      return NextResponse.json({ ok: true, deduped: true });
+    // Verify signature
+    if (!verifyPinnacleSignature(rawBody, signature)) {
+      console.error('Invalid Pinnacle signature');
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
     }
-  }
 
-  let orgId: string | null = null;
-  if (event.brand_id) {
-    const integration = await admin
-      .from('org_integrations')
-      .select('org_id')
-      .eq('brand_id', event.brand_id)
-      .maybeSingle();
-    orgId = integration.data?.org_id ?? null;
-  }
+    const event: PinnacleEvent = JSON.parse(rawBody);
+    const admin = createSupabaseAdminClient();
 
-  let contactId: string | null = null;
-  if (orgId && event.type?.startsWith('inbound') && event.from?.phone) {
-    const phone = event.from.phone;
-    const existing = await admin
-      .from('contacts')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('phone', phone)
-      .maybeSingle();
-    if (existing.data) {
-      contactId = existing.data.id;
-    } else {
-      const inserted = await admin
-        .from('contacts')
-        .insert({ org_id: orgId, phone })
+    // Check for duplicate events
+    const externalId =
+      event.id ?? event.event_id ?? event.message?.id ?? null;
+    if (externalId) {
+      const { data: existing } = await admin
+        .from('webhook_events')
         .select('id')
-        .single();
-      contactId = inserted.data?.id ?? null;
-    }
-  }
+        .eq('external_event_id', externalId)
+        .maybeSingle();
 
-  let conversationId: string | null = null;
-  let conversationUnread = 0;
-  if (orgId && contactId) {
-    const existing = await admin
-      .from('conversations')
-      .select('id, unread_count')
-      .eq('org_id', orgId)
-      .eq('contact_id', contactId)
-      .maybeSingle();
-    if (existing.data) {
-      conversationId = existing.data.id;
-      conversationUnread = existing.data.unread_count ?? 0;
-    } else {
-      const inserted = await admin
+      if (existing) {
+        return NextResponse.json({ ok: true, deduped: true });
+      }
+    }
+
+    // Find organization by brand_id
+    let orgId: string | null = null;
+    if (event.brand_id) {
+      const { data: integration } = await admin
+        .from('org_integrations')
+        .select('org_id')
+        .eq('brand_id', event.brand_id)
+        .maybeSingle();
+
+      orgId = integration?.org_id ?? null;
+    }
+
+    // Handle inbound messages - find or create contact
+    let contactId: string | null = null;
+    if (orgId && event.type?.startsWith('inbound') && event.from?.phone) {
+      const phone = event.from.phone;
+
+      // Try to find existing contact
+      const { data: existingContact } = await admin
+        .from('contacts')
+        .select('id')
+        .eq('org_id', orgId)
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (existingContact) {
+        contactId = existingContact.id;
+      } else {
+        // Create new contact
+        const { data: newContact } = await admin
+          .from('contacts')
+          .insert({ org_id: orgId, phone })
+          .select('id')
+          .single();
+
+        contactId = newContact?.id ?? null;
+      }
+    }
+
+    // Find or create conversation
+    let conversationId: string | null = null;
+    let conversationUnread = 0;
+    if (orgId && contactId) {
+      const { data: existingConv } = await admin
         .from('conversations')
-        .insert({
-          org_id: orgId,
-          contact_id: contactId,
-          last_message_at: new Date().toISOString(),
-          last_direction: 'inbound',
-          unread_count: 0,
-        })
         .select('id, unread_count')
-        .single();
-      conversationId = inserted.data?.id ?? null;
-      conversationUnread = inserted.data?.unread_count ?? 0;
-    }
-  }
+        .eq('org_id', orgId)
+        .eq('contact_id', contactId)
+        .maybeSingle();
 
-  if (orgId) {
-    if (event.type === 'inbound_text') {
-      await admin.from('messages').insert({
-        conversation_id: conversationId,
-        org_id: orgId,
-        course_id: null,
-        contact_id: contactId,
-        direction: 'inbound',
-        kind: 'text',
-        body: event.text,
-        provider_message_id: event.message?.id ?? null,
-        sent_at: new Date().toISOString(),
-      });
-      if (conversationId) {
-        await admin
+      if (existingConv) {
+        conversationId = existingConv.id;
+        conversationUnread = existingConv.unread_count ?? 0;
+      } else {
+        const { data: newConv } = await admin
           .from('conversations')
-          .update({
+          .insert({
+            org_id: orgId,
+            contact_id: contactId,
             last_message_at: new Date().toISOString(),
             last_direction: 'inbound',
-            unread_count: conversationUnread + 1,
+            unread_count: 0,
           })
-          .eq('id', conversationId);
+          .select('id, unread_count')
+          .single();
+
+        conversationId = newConv?.id ?? null;
+        conversationUnread = newConv?.unread_count ?? 0;
       }
     }
 
-    if (['delivered', 'read', 'clicked', 'failed'].includes(event.type)) {
-      const updates: Record<string, any> = {};
+    // Process event based on type
+    if (orgId) {
       const now = new Date().toISOString();
-      if (event.type === 'delivered') updates.delivered_at = now;
-      if (event.type === 'read') updates.read_at = now;
-      if (event.type === 'clicked') updates.first_click_at = now;
-      if (event.type === 'failed') {
-        updates.failure_reason = event.reason ?? 'unknown';
-        updates.status = 'failed';
+
+      // Handle inbound text messages
+      if (event.type === 'inbound_text') {
+        await admin.from('messages').insert({
+          conversation_id: conversationId,
+          org_id: orgId,
+          course_id: null,
+          contact_id: contactId,
+          direction: 'inbound',
+          kind: 'text',
+          body: event.text ?? '',
+          provider_message_id: event.message?.id ?? null,
+          sent_at: now,
+        });
+
+        // Increment unread count
+        if (conversationId) {
+          await admin
+            .from('conversations')
+            .update({
+              last_message_at: now,
+              last_direction: 'inbound',
+              unread_count: conversationUnread + 1,
+            })
+            .eq('id', conversationId);
+        }
       }
-      if (event.message?.id) {
-        await admin.from('message_sends').update(updates).eq('provider_message_id', event.message.id);
-        await admin.from('messages').update(updates).eq('provider_message_id', event.message.id);
+
+      // Handle delivery status updates
+      if (['delivered', 'read', 'clicked', 'failed'].includes(event.type)) {
+        const updates: Record<string, any> = {};
+
+        if (event.type === 'delivered') updates.delivered_at = now;
+        if (event.type === 'read') updates.read_at = now;
+        if (event.type === 'clicked') updates.first_click_at = now;
+        if (event.type === 'failed') {
+          updates.failure_reason = event.reason ?? 'unknown';
+          updates.status = 'failed';
+        }
+
+        if (event.message?.id) {
+          // Update message_sends
+          await admin
+            .from('message_sends')
+            .update(updates)
+            .eq('provider_message_id', event.message.id);
+
+          // Update messages
+          await admin
+            .from('messages')
+            .update(updates)
+            .eq('provider_message_id', event.message.id);
+        }
       }
     }
+
+    // Store webhook event
+    await admin.from('webhook_events').insert({
+      org_id: orgId,
+      course_id: null,
+      event_type: event.type ?? 'inbound_text',
+      external_event_id: externalId,
+      pinnacle_message_id: event.message?.id ?? null,
+      contact_phone: event.from?.phone ?? null,
+      payload: event as any,
+      received_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
-
-  await admin.from('webhook_events').insert({
-    org_id: orgId,
-    course_id: null,
-    event_type: event.type ?? 'inbound_text',
-    external_event_id: externalId,
-    pinnacle_message_id: event.message?.id ?? null,
-    contact_phone: event.from?.phone ?? null,
-    payload: event,
-    received_at: new Date().toISOString(),
-  });
-
-  return NextResponse.json({ ok: true });
 }
