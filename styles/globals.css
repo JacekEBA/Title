@@ -117,3 +117,13 @@ svg.sparkline path{fill:none;stroke:var(--title-green);stroke-width:2}
 
 /* Section headings */
 .section-title{font-size:1.1rem;font-weight:800;margin-bottom:8px}
+.page-header{display:flex;align-items:center;justify-content:space-between}
+.toolbar{display:flex;gap:12px;justify-content:space-between}
+.toolbar .seg{display:flex;gap:8px}
+.btn-tab{padding:6px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+.btn-tab.active{background:var(--title-green);color:#fff;border-color:var(--title-green)}
+.btn{padding:6px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+.lbl{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:#fff;border:1px solid #e8ecf0;border-radius:16px;box-shadow:0 20px 44px rgba(0,0,0,.12);padding:16px;min-width:420px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
