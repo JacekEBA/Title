@@ -236,4 +236,49 @@
   .space-y-4 > * + * {
     @apply mt-4;
   }
+    /* Add these styles to your globals.css at the end */
+
+/* Sidebar */
+.sidebar {
+  @apply w-64 h-screen bg-card border-r border-border flex flex-col fixed left-0 top-0;
+}
+
+.sidebar-header {
+  @apply p-6 border-b border-border;
+}
+
+.sidebar-logo {
+  @apply flex items-center gap-3;
+}
+
+.sidebar-logo-icon {
+  @apply w-10 h-10 bg-primary rounded-lg flex items-center justify-center;
+}
+
+.sidebar-logo-text {
+  @apply text-xl font-bold;
+}
+
+.sidebar-nav {
+  @apply flex-1 px-3 py-4 space-y-1 overflow-y-auto;
+}
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+         text-foreground/70 hover:text-foreground hover:bg-muted
+         transition-colors;
+}
+
+.sidebar-link.active {
+  @apply bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary;
+}
+
+.sidebar-footer {
+  @apply p-6 border-t border-border text-xs text-muted-foreground;
+}
+
+/* Update content to account for fixed sidebar */
+.content {
+  @apply flex-1 p-8 ml-64;
+}
 }
