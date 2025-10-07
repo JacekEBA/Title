@@ -1,49 +1,38 @@
-import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from './supabase/server';
 
-export type ProfileRole = "owner" | "client_admin" | "client_viewer";
-
-export type ProfileSummary = {
-  fullName: string;
-  role: ProfileRole;
-  organizationId: string | null;
-};
-
-type RequireProfileResult = {
-  supabase: SupabaseClient;
-  user: {
-    id: string;
-    email?: string;
-  };
-  profile: ProfileSummary;
-};
-
-export async function requireProfile(): Promise<RequireProfileResult> {
-  const supabase = supabaseServer();
+export async function getSession() {
+  const supabase = createSupabaseServerClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session ?? null;
+}
 
-  if (!user) {
-    redirect("/login");
-  }
-
+export async function landingRedirectPath() {
+  const supabase = createSupabaseServerClient();
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role, organization_id")
-    .eq("user_id", user.id)
+    .from('profiles')
+    .select('role')
     .maybeSingle();
+  if (profile?.role === 'owner') return '/agency';
+  const { data: mems } = await supabase
+    .from('org_memberships')
+    .select('org_id, role');
+  const owners = (mems ?? []).filter(
+    (m) => m.role === 'owner' || m.role === 'agency_staff'
+  );
+  if (owners.length > 0) return '/agency';
+  if ((mems ?? []).length === 1) return `/org/${(mems ?? [])[0].org_id}`;
+  return '/login?pickOrg=1';
+}
 
-  const role: ProfileRole = (profile?.role as ProfileRole) ?? "client_viewer";
-
-  return {
-    supabase,
-    user,
-    profile: {
-      fullName: profile?.full_name ?? user.email ?? "User",
-      role,
-      organizationId: profile?.organization_id ?? null,
-    },
-  };
+export async function requireOrgAccess(orgId: string) {
+  const supabase = createSupabaseServerClient();
+  const { data } = await supabase
+    .from('org_memberships')
+    .select('org_id')
+    .eq('org_id', orgId)
+    .limit(1)
+    .maybeSingle();
+  if (!data) throw new Error('NO_ORG_ACCESS');
 }
