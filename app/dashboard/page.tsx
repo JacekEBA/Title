@@ -7,6 +7,12 @@ type Organization = {
   name: string;
 };
 
+type Membership = {
+  org_id: string;
+  role: string;
+  organizations: Organization | null;
+};
+
 /**
  * Organization chooser + landing router.
  *
@@ -43,7 +49,9 @@ export default async function DashboardPage({
     .select('org_id, role, organizations:org_id(id, name)')
     .order('created_at', { ascending: true });
 
-  const roles = (memberships ?? []).map((m) => m.role);
+  // Type assertion to help TypeScript understand the structure
+  const typedMemberships = (memberships as Membership[] | null) ?? [];
+  const roles = typedMemberships.map((m) => m.role);
 
   // Redirect logic
   if (!forcePick) {
@@ -55,8 +63,8 @@ export default async function DashboardPage({
       redirect('/agency');
     }
 
-    if ((memberships ?? []).length === 1) {
-      const membership = memberships?.[0];
+    if (typedMemberships.length === 1) {
+      const membership = typedMemberships[0];
       if (membership?.org_id) {
         redirect(`/org/${membership.org_id}`);
       }
@@ -64,7 +72,7 @@ export default async function DashboardPage({
   }
 
   // Extract organizations
-  const organizations = (memberships ?? [])
+  const organizations = typedMemberships
     .map((m) => m.organizations)
     .filter((org): org is Organization => Boolean(org));
 
