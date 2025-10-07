@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createSupabaseActionClient } from '@/lib/supabase/server';
+import type { Database } from '@/types/database';
 
 type CreatePromoInput = {
   org_id: string;
@@ -12,6 +13,10 @@ type CreatePromoInput = {
   scheduled_at: string;
   timezone: string;
 };
+
+type CampaignInsert = Database['public']['Tables']['campaigns']['Insert'];
+type CalendarEventInsert = Database['public']['Tables']['calendar_events']['Insert'];
+type SendJobInsert = Database['public']['Tables']['send_jobs']['Insert'];
 
 export async function createPromoAction(input: CreatePromoInput) {
   if (!input.org_id) {
@@ -43,18 +48,20 @@ export async function createPromoAction(input: CreatePromoInput) {
 
   try {
     // Create campaign
+    const campaignData: CampaignInsert = {
+      org_id: input.org_id,
+      course_id: input.course_id,
+      template_id: input.template_id,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      audience_kind: 'all_contacts',
+      scheduled_at: input.scheduled_at,
+      timezone: input.timezone,
+    };
+
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
-      .insert({
-        org_id: input.org_id,
-        course_id: input.course_id,
-        template_id: input.template_id,
-        name: input.name.trim(),
-        description: input.description?.trim() || null,
-        audience_kind: 'all_contacts',
-        scheduled_at: input.scheduled_at,
-        timezone: input.timezone,
-      })
+      .insert(campaignData)
       .select('id')
       .single();
 
@@ -66,18 +73,20 @@ export async function createPromoAction(input: CreatePromoInput) {
     }
 
     // Create calendar event
+    const eventData: CalendarEventInsert = {
+      org_id: input.org_id,
+      course_id: input.course_id,
+      event_type: 'campaign_send',
+      campaign_id: campaign.id,
+      title: input.name.trim(),
+      description: input.description?.trim() || null,
+      start_time: input.scheduled_at,
+      end_time: input.scheduled_at,
+    };
+
     const { error: eventError } = await supabase
       .from('calendar_events')
-      .insert({
-        org_id: input.org_id,
-        course_id: input.course_id,
-        event_type: 'campaign_send',
-        campaign_id: campaign.id,
-        title: input.name.trim(),
-        description: input.description?.trim() || null,
-        start_time: input.scheduled_at,
-        end_time: input.scheduled_at,
-      });
+      .insert(eventData);
 
     if (eventError) {
       console.error('Calendar event creation error:', eventError);
@@ -89,10 +98,12 @@ export async function createPromoAction(input: CreatePromoInput) {
     }
 
     // Create send job
-    const { error: jobError } = await supabase.from('send_jobs').insert({
+    const jobData: SendJobInsert = {
       campaign_id: campaign.id,
       run_at: input.scheduled_at,
-    });
+    };
+
+    const { error: jobError } = await supabase.from('send_jobs').insert(jobData);
 
     if (jobError) {
       console.error('Send job creation error:', jobError);
