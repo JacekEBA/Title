@@ -1,24 +1,27 @@
 :root{
---title-green:#8BC34A;
---bg:#FFFFFF;
---ink:#0f172a;
---muted:#f6f7f8;
---border:#e5e7eb;
+  --title-green:#8BC34A;
+  --bg:#FFFFFF;
+  --ink:#0f172a;
+  --muted:#f6f7f8;
+  --border:#e5e7eb;
+  --card:#ffffff;
+  --shadow:0 20px 50px rgba(0,0,0,.08),0 8px 20px rgba(0,0,0,.06);
 }
+*{box-sizing:border-box}
 html,body{height:100%;}
 body{
-background:var(--bg);
-color:var(--ink);
-font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  margin:0;
 }
 .container{max-width:1200px;margin:0 auto;padding:24px;}
 .card{
-background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;
-box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.04);
 }
 .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--muted);cursor:pointer;font-weight:600;}
-.btn-primary{background:var(--title-green);border-color:var(--title-green);color:#0b3d0b;}
+.btn-primary{background:var(--title-green);border:1px solid var(--title-green);color:#0b2510;padding:12px 14px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(139,195,74,.35);} 
 .btn-secondary{background:var(--muted);}
 .tabbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--muted);font-size:12px;}
@@ -27,3 +30,43 @@ box-shadow:0 1px 2px rgba(0,0,0,0.04);
 .row{display:flex;gap:12px;flex-wrap:wrap;}
 .col{flex:1;min-width:240px;}
 h1,h2,h3{margin:0 0 12px 0}
+main.login-bg{
+  min-height:100dvh;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(139,195,74,.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 120%, rgba(139,195,74,.20), transparent 60%),
+    linear-gradient(180deg, #fdfefd 0%, #f7fbf5 100%);
+}
+.login-footer{margin-top:24px;color:#5b6573;font-size:.9rem}
+.auth-wrap{width:100%;max-width:460px;padding:16px}
+.brand{display:flex;gap:10px;align-items:center;justify-content:center;margin-bottom:10px}
+.brand .flag{width:16px;height:16px;border-left:3px solid var(--ink);border-bottom:3px solid var(--ink);position:relative;transform:skewX(-12deg)}
+.brand .flag::after{content:'';position:absolute;left:0;top:-8px;width:14px;height:10px;background:var(--title-green);clip-path:polygon(0 0,100% 20%,0 100%)}
+.brand span{font-weight:800;letter-spacing:.5px}
+.auth-card{
+  background:var(--card);
+  border-radius:16px;padding:28px;
+  box-shadow:var(--shadow);
+  border:1px solid rgba(15,23,42,.06);
+}
+.headline{margin:6px 0 4px 0;font-size:1.4rem}
+.subtext{color:#64748b;margin-bottom:14px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tab{flex:1;padding:10px 12px;border-radius:12px;background:#eceff3;color:#475569;border:1px solid transparent;transition:.15s}
+.tab.active{background:#ffffff;border-color:#dbe2ea;box-shadow:0 6px 14px rgba(0,0,0,.05)}
+.form-grid{display:grid;gap:10px}
+.form-inline{display:flex;gap:8px;margin-top:10px}
+.input{
+  padding:12px 14px;border-radius:12px;border:1px solid #dbe2ea;background:#fff;font-size:14px;outline:0;
+}
+.input:focus{border-color:var(--title-green);box-shadow:0 0 0 3px rgba(139,195,74,.15)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
+.w-full{width:100%}
+.alert{background:#fff3f3;border:1px solid #ffd4d4;color:#9b1c1c;padding:10px 12px;border-radius:10px}
+.notice{background:#f3fff6;border:1px solid #c8f3d2;color:#065f46;padding:10px 12px;border-radius:10px}
+.muted{color:#5b6573}
+.hint{margin-top:10px}
+.link{color:#0b5f1e;text-decoration:underline;cursor:pointer}
+.link.small{font-size:.9rem}
+.forgot{margin-top:14px;display:grid;gap:8px}
