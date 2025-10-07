@@ -68,6 +68,10 @@ export async function createPromoAction(input: CreatePromoInput) {
       );
     }
 
+    if (!campaign) {
+      throw new Error('Failed to create campaign - no data returned');
+    }
+
     // Create calendar event
     const eventData = {
       org_id: input.org_id,
@@ -80,9 +84,9 @@ export async function createPromoAction(input: CreatePromoInput) {
       end_time: input.scheduled_at,
     };
 
-    // @ts-ignore Supabase type inference issue - runtime types are correct
     const { error: eventError } = await supabase
       .from('calendar_events')
+      // @ts-ignore Supabase type inference issue - runtime types are correct
       .insert([eventData]);
 
     if (eventError) {
@@ -100,8 +104,10 @@ export async function createPromoAction(input: CreatePromoInput) {
       run_at: input.scheduled_at,
     };
 
-    // @ts-ignore Supabase type inference issue - runtime types are correct
-    const { error: jobError } = await supabase.from('send_jobs').insert([jobData]);
+    const { error: jobError } = await supabase
+      .from('send_jobs')
+      // @ts-ignore Supabase type inference issue - runtime types are correct
+      .insert([jobData]);
 
     if (jobError) {
       console.error('Send job creation error:', jobError);
