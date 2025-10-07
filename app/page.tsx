@@ -9,3 +9,7 @@ export default async function Page() {
   const path = await landingRedirectPath();
   redirect(path);
 }
+
+
+
+
