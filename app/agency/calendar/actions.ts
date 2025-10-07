@@ -54,7 +54,7 @@ export async function createPromoAction(input: CreatePromoInput) {
       timezone: input.timezone,
     };
 
-    // @ts-expect-error Supabase type inference issue - runtime types are correct
+    // @ts-ignore Supabase type inference issue - runtime types are correct
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .insert([campaignData])
