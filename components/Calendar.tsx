@@ -18,7 +18,12 @@ type CalendarEvent = {
   end: any;
 };
 
-export default function Calendar({ events }: { events: CalendarEvent[] }) {
+type CalendarProps = {
+  events: CalendarEvent[];
+  onSelectEvent?: (event: CalendarEvent) => void;
+};
+
+export default function Calendar({ events, onSelectEvent }: CalendarProps) {
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [date, setDate] = useState(new Date());
 
