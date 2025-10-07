@@ -1,40 +1,53 @@
 // Add these functions to your existing actions.ts file
 
-export async function updateEventTimeAction(eventId: string, newScheduledAt: string) {
+type UpdateEventInput = {
+  eventId: string;
+  campaignId: string;
+  name: string;
+  description: string | null;
+  scheduledAt: string;
+  timezone: string;
+  orgId: string;
+  courseId: string;
+  templateId: string;
+};
+
+export async function updateEventAction(input: UpdateEventInput) {
   'use server';
   
   const supabase = createSupabaseActionClient();
 
   try {
-    // Get the campaign_id from the calendar event
-    const { data: event, error: fetchError } = await supabase
-      .from('calendar_events')
-      .select('campaign_id')
-      .eq('id', eventId)
-      .single();
-
-    if (fetchError || !event?.campaign_id) {
-      throw new Error('Event not found');
-    }
-
-    // Update campaign scheduled_at
+    // Update campaign with all fields
     const { error: campaignError } = await supabase
       .from('campaigns')
-      .update({ scheduled_at: newScheduledAt })
-      .eq('id', event.campaign_id);
+      .update({
+        name: input.name,
+        description: input.description,
+        scheduled_at: input.scheduledAt,
+        timezone: input.timezone,
+        org_id: input.orgId,
+        course_id: input.courseId,
+        template_id: input.templateId,
+      })
+      .eq('id', input.campaignId);
 
     if (campaignError) {
       throw new Error('Failed to update campaign');
     }
 
-    // Update calendar event times
+    // Update calendar event
     const { error: eventError } = await supabase
       .from('calendar_events')
       .update({
-        start_time: newScheduledAt,
-        end_time: newScheduledAt,
+        title: input.name,
+        description: input.description,
+        start_time: input.scheduledAt,
+        end_time: input.scheduledAt,
+        org_id: input.orgId,
+        course_id: input.courseId,
       })
-      .eq('id', eventId);
+      .eq('id', input.eventId);
 
     if (eventError) {
       throw new Error('Failed to update calendar event');
@@ -43,8 +56,8 @@ export async function updateEventTimeAction(eventId: string, newScheduledAt: str
     // Update send job run_at
     const { error: jobError } = await supabase
       .from('send_jobs')
-      .update({ run_at: newScheduledAt })
-      .eq('campaign_id', event.campaign_id)
+      .update({ run_at: input.scheduledAt })
+      .eq('campaign_id', input.campaignId)
       .eq('status', 'pending');
 
     if (jobError) {
