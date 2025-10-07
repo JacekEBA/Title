@@ -1,18 +1,24 @@
-import '@/styles/globals.css';
+import type { Metadata } from 'next';
 import AuthCard from '@/components/AuthCard';
 
-export const metadata = {
-  title: 'Sign in • Title',
-  description: 'RCS promos for golf courses',
+export const metadata: Metadata = {
+  title: 'Sign in',
+  description: 'Sign in to your Title account',
 };
 
-export default function Page() {
+export default function LoginPage() {
   return (
     <main className="login-bg">
-      <AuthCard />
-      <footer className="login-footer">
-        <span>© {new Date().getFullYear()} Title • Golf-first RCS</span>
-      </footer>
+      <div className="auth-wrap">
+        <div className="brand">
+          <div className="flag" />
+          <span>Title</span>
+        </div>
+        <AuthCard />
+        <footer className="login-footer">
+          <span>© {new Date().getFullYear()} Title • Golf-first RCS</span>
+        </footer>
+      </div>
     </main>
   );
 }
