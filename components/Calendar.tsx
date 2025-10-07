@@ -118,6 +118,7 @@ export default function Calendar({ events, onSelectEvent }: CalendarProps) {
         onView={(v) => setView(v as 'month' | 'week' | 'day')}
         date={date}
         onNavigate={(d) => setDate(d)}
+        onSelectEvent={onSelectEvent}
         selectable
         popup
         style={{ height: 700 }}
