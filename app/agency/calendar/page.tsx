@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import CalendarWithEdit from './CalendarWithEdit';
 import { getAccessibleOrgs, getCalendarEventsForOwner } from '@/lib/agency';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { createPromoAction, updateEventTimeAction, cancelEventAction } from './actions';
+import { createPromoAction, updateEventAction, cancelEventAction } from './actions';
 
 export const metadata: Metadata = {
   title: 'Calendar',
