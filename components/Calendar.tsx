@@ -11,51 +11,102 @@ function toDate(d: any) {
   return typeof d === 'string' ? new Date(d) : d;
 }
 
-export default function Calendar({ events }: { events: { id: string; title: string; start: any; end: any }[] }) {
+type CalendarEvent = {
+  id: string;
+  title: string;
+  start: any;
+  end: any;
+};
+
+export default function Calendar({ events }: { events: CalendarEvent[] }) {
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [date, setDate] = useState(new Date());
 
-  const ev = useMemo(
+  const processedEvents = useMemo(
     () => events.map((e) => ({ ...e, start: toDate(e.start), end: toDate(e.end) })),
     [events]
   );
+
+  const handleNavigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
+    let newDate = new Date(date);
+    
+    if (action === 'TODAY') {
+      newDate = new Date();
+    } else if (action === 'PREV') {
+      if (view === 'month') {
+        newDate = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+      } else if (view === 'week') {
+        newDate = new Date(date.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (view === 'day') {
+        newDate = new Date(date.getTime() - 24 * 60 * 60 * 1000);
+      }
+    } else if (action === 'NEXT') {
+      if (view === 'month') {
+        newDate = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+      } else if (view === 'week') {
+        newDate = new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
+      } else if (view === 'day') {
+        newDate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+      }
+    }
+    
+    setDate(newDate);
+  };
 
   return (
     <div>
       <div className="toolbar">
         <div className="seg">
-          <button className={view === 'month' ? 'btn-tab active' : 'btn-tab'} onClick={() => setView('month')}>
+          <button
+            type="button"
+            className={view === 'month' ? 'btn-tab active' : 'btn-tab'}
+            onClick={() => setView('month')}
+          >
             Month
           </button>
-          <button className={view === 'week' ? 'btn-tab active' : 'btn-tab'} onClick={() => setView('week')}>
+          <button
+            type="button"
+            className={view === 'week' ? 'btn-tab active' : 'btn-tab'}
+            onClick={() => setView('week')}
+          >
             Week
           </button>
-          <button className={view === 'day' ? 'btn-tab active' : 'btn-tab'} onClick={() => setView('day')}>
+          <button
+            type="button"
+            className={view === 'day' ? 'btn-tab active' : 'btn-tab'}
+            onClick={() => setView('day')}
+          >
             Day
           </button>
         </div>
         <div className="seg">
-          <button className="btn" onClick={() => setDate(new Date())}>
+          <button 
+            type="button"
+            className="btn" 
+            onClick={() => handleNavigate('TODAY')}
+          >
             Today
           </button>
           <button
+            type="button"
             className="btn"
-            onClick={() => setDate(new Date(date.getFullYear(), date.getMonth() - 1, 1))}
+            onClick={() => handleNavigate('PREV')}
           >
-            Prev
+            ← Prev
           </button>
           <button
+            type="button"
             className="btn"
-            onClick={() => setDate(new Date(date.getFullYear(), date.getMonth() + 1, 1))}
+            onClick={() => handleNavigate('NEXT')}
           >
-            Next
+            Next →
           </button>
         </div>
       </div>
 
       <RBC
         localizer={localizer}
-        events={ev}
+        events={processedEvents}
         startAccessor="start"
         endAccessor="end"
         view={view}
@@ -64,7 +115,7 @@ export default function Calendar({ events }: { events: { id: string; title: stri
         onNavigate={(d) => setDate(d)}
         selectable
         popup
-        style={{ height: 700, marginTop: 10 }}
+        style={{ height: 700 }}
       />
     </div>
   );
