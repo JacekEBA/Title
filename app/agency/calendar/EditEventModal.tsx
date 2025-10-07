@@ -99,9 +99,10 @@ export default function EditEventModal({
   // Update timezone when course changes
   useEffect(() => {
     const course = courses.find((c) => c.id === courseId);
-    if (course) {
-      setTimezone(course.timezone);
+    if (!course) {
+      return;
     }
+    setTimezone(course.timezone ?? 'UTC');
   }, [courseId, courses]);
 
   if (!event) return null;

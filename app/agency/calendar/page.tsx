@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import CalendarWithEdit from './CalendarWithEdit';
 import { getAccessibleOrgs, getCalendarEventsForOwner } from '@/lib/agency';
+import { getCurrentProfile } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createPromoAction, updateEventAction, cancelEventAction } from './actions';
 
@@ -19,6 +20,9 @@ export default async function CalendarPage() {
   const to = futureDate.toISOString();
 
   const eventsRaw = await getCalendarEventsForOwner({ from, to });
+
+  const profile = await getCurrentProfile();
+  const hasGlobalAccess = profile?.role === 'owner' || profile?.role === 'agency_staff';
 
   // Get organizations
   const organizations = await getAccessibleOrgs();
@@ -42,8 +46,30 @@ export default async function CalendarPage() {
     orgMap[org.id] = org.name as string;
   });
 
-  if (orgIds.length > 0) {
-    const [{ data: courses }, { data: templates }, { data: campaigns }] = await Promise.all([
+  let courses: any[] = [];
+  let templates: any[] = [];
+  let campaigns: any[] = [];
+
+  if (hasGlobalAccess) {
+    const [{ data: allCourses }, { data: allTemplates }, { data: allCampaigns }] = await Promise.all([
+      supabase
+        .from('courses')
+        .select('id, name, org_id, timezone')
+        .order('name', { ascending: true }),
+      supabase
+        .from('rcs_templates')
+        .select('id, name, org_id')
+        .order('name', { ascending: true }),
+      supabase
+        .from('campaigns')
+        .select('id, org_id, course_id, template_id, name, description, scheduled_at, status')
+    ]);
+
+    courses = allCourses ?? [];
+    templates = allTemplates ?? [];
+    campaigns = allCampaigns ?? [];
+  } else if (orgIds.length > 0) {
+    const [{ data: filteredCourses }, { data: filteredTemplates }, { data: filteredCampaigns }] = await Promise.all([
       supabase
         .from('courses')
         .select('id, name, org_id, timezone')
@@ -60,36 +86,40 @@ export default async function CalendarPage() {
         .in('org_id', orgIds)
     ]);
 
-    // Build maps
-    for (const course of courses ?? []) {
-      if (!course?.org_id || !course?.id || !course?.name) continue;
-      courseMap[course.id] = course.name;
-      if (!courseOptionsByOrg[course.org_id]) {
-        courseOptionsByOrg[course.org_id] = [];
-      }
-      courseOptionsByOrg[course.org_id].push({
-        id: course.id,
-        name: course.name,
-        timezone: course.timezone ?? 'UTC',
-      });
-    }
+    courses = filteredCourses ?? [];
+    templates = filteredTemplates ?? [];
+    campaigns = filteredCampaigns ?? [];
+  }
 
-    for (const template of templates ?? []) {
-      if (!template?.org_id || !template?.id || !template?.name) continue;
-      templateMap[template.id] = template.name;
-      if (!templateOptionsByOrg[template.org_id]) {
-        templateOptionsByOrg[template.org_id] = [];
-      }
-      templateOptionsByOrg[template.org_id].push({
-        id: template.id,
-        name: template.name,
-      });
+  // Build maps
+  for (const course of courses) {
+    if (!course?.org_id || !course?.id || !course?.name) continue;
+    courseMap[course.id] = course.name;
+    if (!courseOptionsByOrg[course.org_id]) {
+      courseOptionsByOrg[course.org_id] = [];
     }
+    courseOptionsByOrg[course.org_id].push({
+      id: course.id,
+      name: course.name,
+      timezone: course.timezone ?? 'UTC',
+    });
+  }
 
-   for (const campaign of campaigns ?? []) {
-      if (!campaign?.id) continue;
-      campaignMap[campaign.id] = campaign;
+  for (const template of templates) {
+    if (!template?.org_id || !template?.id || !template?.name) continue;
+    templateMap[template.id] = template.name;
+    if (!templateOptionsByOrg[template.org_id]) {
+      templateOptionsByOrg[template.org_id] = [];
     }
+    templateOptionsByOrg[template.org_id].push({
+      id: template.id,
+      name: template.name,
+    });
+  }
+
+  for (const campaign of campaigns) {
+    if (!campaign?.id) continue;
+    campaignMap[campaign.id] = campaign;
   }
 
   // Enrich events with details

@@ -30,7 +30,17 @@ type CalendarWithEditProps = {
   courseOptionsByOrg: Record<string, any[]>;
   templateOptionsByOrg: Record<string, any[]>;
   createPromoAction: (formData: FormData) => Promise<void>;
-  updateEventTimeAction: (eventId: string, newScheduledAt: string) => Promise<void>;
+  updateEventAction: (data: {
+    eventId: string;
+    campaignId: string;
+    name: string;
+    description: string | null;
+    scheduledAt: string;
+    timezone: string;
+    orgId: string;
+    courseId: string;
+    templateId: string;
+  }) => Promise<void>;
   cancelEventAction: (eventId: string) => Promise<void>;
 };
 
@@ -40,7 +50,7 @@ export default function CalendarWithEdit({
   courseOptionsByOrg,
   templateOptionsByOrg,
   createPromoAction,
-  updateEventTimeAction,
+  updateEventAction,
   cancelEventAction,
 }: CalendarWithEditProps) {
   const [selectedEvent, setSelectedEvent] = useState<EnrichedEvent | null>(null);
@@ -52,8 +62,18 @@ export default function CalendarWithEdit({
     }
   };
 
-  const handleUpdateEvent = async (eventId: string, newScheduledAt: string) => {
-    await updateEventTimeAction(eventId, newScheduledAt);
+  const handleUpdateEvent = async (data: {
+    eventId: string;
+    campaignId: string;
+    name: string;
+    description: string | null;
+    scheduledAt: string;
+    timezone: string;
+    orgId: string;
+    courseId: string;
+    templateId: string;
+  }) => {
+    await updateEventAction(data);
     setSelectedEvent(null);
     window.location.reload();
   };
@@ -120,7 +140,7 @@ export default function CalendarWithEdit({
           templateOptionsByOrg={templateOptionsByOrg}
           onClose={() => setSelectedEvent(null)}
           onUpdate={async (data) => {
-            await handleUpdateEvent(data.eventId, data.scheduledAt);
+            await handleUpdateEvent(data);
           }}
           onCancel={handleCancelEvent}
         />

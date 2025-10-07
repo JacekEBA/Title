@@ -71,7 +71,11 @@ export default function AddPromoModal({
   // Update timezone when course changes
   useEffect(() => {
     const course = courses.find((c) => c.id === courseId);
-    setTimezone(course?.timezone ?? '');
+    if (!course) {
+      setTimezone('');
+      return;
+    }
+    setTimezone(course.timezone ?? 'UTC');
   }, [courseId, courses]);
 
   const resetForm = () => {
@@ -270,9 +274,11 @@ export default function AddPromoModal({
 
               <Field label="Timezone (auto from Course)">
                 <input
+                  name="timezone"
                   value={timezone}
                   readOnly
                   className="input bg-muted"
+                  placeholder="Select a course to load timezone"
                   disabled={loading}
                 />
               </Field>

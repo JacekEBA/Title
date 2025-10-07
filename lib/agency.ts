@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from './auth';
 
 type AgencyOrganization = {
   id: string;
@@ -13,14 +14,8 @@ type MembershipRow = {
 
 export async function getAccessibleOrgs() {
   const supabase = createSupabaseServerClient();
-  
-  // Check if user has global owner role in profiles table
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .single();
+  const profile = await getCurrentProfile();
 
-  // If user has owner or agency_staff role globally, they can see ALL organizations
   if (profile?.role === 'owner' || profile?.role === 'agency_staff') {
     const { data, error } = await supabase
       .from('organizations')
@@ -31,7 +26,6 @@ export async function getAccessibleOrgs() {
     return (data as AgencyOrganization[]) ?? [];
   }
 
-  // Otherwise, only show orgs they're a member of
   const { data, error } = await supabase
     .from('org_memberships')
     .select('role, organizations:org_id(id, name, slug)')
@@ -43,7 +37,6 @@ export async function getAccessibleOrgs() {
     .map((r) => r.organizations)
     .filter(Boolean);
 
-  // De-dupe by id
   const byId = new Map<string, AgencyOrganization>();
   for (const o of orgs) if (o) byId.set(o.id, o);
   return Array.from(byId.values());
@@ -94,12 +87,7 @@ export async function getAgencyDaily({ from, to }: { from: string; to: string })
 
 export async function getCalendarEventsForOwner({ from, to }: { from: string; to: string }) {
   const supabase = createSupabaseServerClient();
-  
-  // Check if user has global owner/agency_staff role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .single();
+  const profile = await getCurrentProfile();
 
   let query = supabase
     .from('calendar_events')
@@ -108,20 +96,18 @@ export async function getCalendarEventsForOwner({ from, to }: { from: string; to
     .lte('start_time', to)
     .order('start_time', { ascending: true });
 
-  // If not owner/agency_staff, filter by accessible orgs
   if (profile?.role !== 'owner' && profile?.role !== 'agency_staff') {
     const orgs = await getAccessibleOrgs();
-    const orgIds = orgs.map(o => o.id);
-    
+    const orgIds = orgs.map((o) => o.id);
+
     if (orgIds.length === 0) {
       return [];
     }
-    
+
     query = query.in('org_id', orgIds);
   }
 
   const { data, error } = await query;
   if (error) return [];
   return data ?? [];
-  
 }

@@ -46,6 +46,11 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
 /**
  * Check if user has global owner or agency_staff role
  */
+export async function isOwner(): Promise<boolean> {
+  const profile = await getCurrentProfile();
+  return profile?.role === 'owner';
+}
+
 export async function isAgencyUser(): Promise<boolean> {
   const profile = await getCurrentProfile();
   return profile?.role === 'owner' || profile?.role === 'agency_staff';
