@@ -112,4 +112,5 @@ export async function getCalendarEventsForOwner({ from, to }: { from: string; to
   const { data, error } = await query;
   if (error) return [];
   return data ?? [];
+  
 }
