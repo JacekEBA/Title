@@ -43,7 +43,10 @@ export default async function DashboardPage({
 
   const forcePick = String(searchParams?.pickOrg ?? '') === '1';
 
-  const { data: profile } = await supabase
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
     .from('profiles')
     .select('role')
     .maybeSingle();
@@ -56,11 +59,13 @@ export default async function DashboardPage({
   // Type assertion to help TypeScript understand the structure
   const typedMemberships = (memberships as Membership[] | null) ?? [];
   const roles = typedMemberships.map((m) => m.role);
+  const profileRole =
+    !profileError && profile && 'role' in profile ? profile.role : null;
 
   // Redirect logic
   if (!forcePick) {
     if (
-      profile?.role === 'owner' ||
+      profileRole === 'owner' ||
       roles.includes('owner') ||
       roles.includes('agency_staff')
     ) {

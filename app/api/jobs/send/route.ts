@@ -26,6 +26,11 @@ type Contact = {
 };
 
 export async function GET() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('SUPABASE_SERVICE_ROLE_KEY is not configured. Skipping job run.');
+    return NextResponse.json({ ok: false, reason: 'service role key missing' });
+  }
+
   const admin = createSupabaseAdminClient();
   const nowIso = new Date().toISOString();
 

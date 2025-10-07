@@ -26,10 +26,12 @@ export default async function ConversationPage({ params }: Params) {
   await requireOrgAccess(params.orgId);
 
   const supabase = createSupabaseServerClient();
+  const conversationId = params.conversationId;
+
   const { data: messages } = await supabase
     .from('messages')
     .select('id, direction, body, created_at')
-    .eq('conversation_id', params.conversationId)
+    .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
 
   const typedMessages = (messages as Message[]) ?? [];
@@ -119,16 +121,13 @@ export default async function ConversationPage({ params }: Params) {
       <div className="space-y-4">
         <div className="card">
           <ChatThread
-            conversationId={params.conversationId}
+            conversationId={conversationId}
             initialMessages={typedMessages}
           />
         </div>
 
         <div className="card">
-          <MessageComposer
-            conversationId={params.conversationId}
-            action={sendMessageAction}
-          />
+          <MessageComposer conversationId={conversationId} action={sendMessageAction} />
         </div>
       </div>
     </div>

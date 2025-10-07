@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
 
 const navigation = [
   {
@@ -59,7 +61,7 @@ const navigation = [
       </svg>
     ),
   },
-];
+] satisfies Array<{ name: string; href: Route; icon: ReactNode }>;
 
 export default function AgencySidebar() {
   const pathname = usePathname();

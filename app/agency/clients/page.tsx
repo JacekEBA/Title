@@ -6,8 +6,14 @@ export const metadata: Metadata = {
   title: 'Clients',
 };
 
+type Organization = {
+  id: string;
+  name: string;
+  slug?: string | null;
+};
+
 export default async function ClientsPage() {
-  const organizations = await getAccessibleOrgs();
+  const organizations = (await getAccessibleOrgs()) as Organization[];
 
   return (
     <div className="page">
