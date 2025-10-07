@@ -1,57 +1,43 @@
-import KpiCard from '@/components/KpiCard';
-import Sparkline from '@/components/Sparkline';
 import { getAgencyDaily } from '@/lib/agency';
+import KpiCard from '@/components/KpiCard';
+import AgencyLineChart from '@/components/AgencyLineChart';
 
-function sum(values: number[]) {
-  return values.reduce((total, value) => total + value, 0);
+function sum(xs: number[]) {
+  return xs.reduce((a, b) => a + b, 0);
 }
-
-function fmt(value: number) {
-  return value.toLocaleString();
+function fmt(n: number) {
+  return n.toLocaleString();
 }
 
 export const metadata = { title: 'Agency • Dashboard' };
 
 export default async function Page() {
-  const daily = await getAgencyDaily();
-  const lastSeven = daily.slice(-7);
-  const sent = sum(daily.map((entry) => entry.sent));
-  const delivered = sum(daily.map((entry) => entry.delivered));
-  const read = sum(daily.map((entry) => entry.read));
-  const replied = sum(daily.map((entry) => entry.replied));
+  const now = Date.now();
+  const from = new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 10);
+  const to = new Date(now).toISOString().slice(0, 10);
 
-  const lastSevenSent = lastSeven.map((entry) => entry.sent);
-  const previousSevenSent = daily.slice(-14, -7).map((entry) => entry.sent);
-  const previousTotal = sum(previousSevenSent);
-  const currentTotal = sum(lastSevenSent);
+  const rows = await getAgencyDaily({ from, to });
 
-  const delta = (() => {
-    if (previousTotal === 0) return undefined;
-    const pct = Math.round(((currentTotal - previousTotal) / previousTotal) * 100);
-    return Number.isFinite(pct) ? `${pct}%` : undefined;
-  })();
+  const sent = sum(rows.map((r) => r.sent));
+  const delivered = sum(rows.map((r) => r.delivered));
+  const read = sum(rows.map((r) => r.read));
+  const replied = sum(rows.map((r) => r.replied));
 
   return (
     <div className="page">
       <h1 className="page-title">Agency overview</h1>
 
       <div className="grid kpis">
-        <KpiCard label="Messages sent" value={fmt(sent)} delta={delta}>
-          <Sparkline points={lastSevenSent} />
-        </KpiCard>
+        <KpiCard label="Messages sent" value={fmt(sent)} />
         <KpiCard label="Delivered" value={fmt(delivered)} />
         <KpiCard label="Read" value={fmt(read)} />
         <KpiCard label="Replies" value={fmt(replied)} />
       </div>
 
       <div className="card">
-        <h2 className="section-title">Recent activity</h2>
-        <p className="muted">
-          This section can include trends, top performing templates, and booking conversions.
-          (Data source: agency_daily_metrics).
-        </p>
+        <h2 className="section-title">Last 30 days</h2>
+        <AgencyLineChart rows={rows} />
       </div>
     </div>
   );
 }
-
