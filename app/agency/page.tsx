@@ -1,40 +1,50 @@
+import type { Metadata } from 'next';
 import { getAgencyDaily } from '@/lib/agency';
 import KpiCard from '@/components/KpiCard';
 import AgencyLineChart from '@/components/AgencyLineChart';
 
-function sum(xs: number[]) {
-  return xs.reduce((a, b) => a + b, 0);
+export const metadata: Metadata = {
+  title: 'Dashboard',
+};
+
+function sum(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0);
 }
-function fmt(n: number) {
+
+function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-export const metadata = { title: 'Agency • Dashboard' };
-
-export default async function Page() {
+export default async function AgencyDashboardPage() {
   const now = Date.now();
-  const from = new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 10);
-  const to = new Date(now).toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  const today = new Date(now);
+  
+  const from = thirtyDaysAgo.toISOString().slice(0, 10);
+  const to = today.toISOString().slice(0, 10);
 
   const rows = await getAgencyDaily({ from, to });
 
-  const sent = sum(rows.map((r) => r.sent));
-  const delivered = sum(rows.map((r) => r.delivered));
-  const read = sum(rows.map((r) => r.read));
-  const replied = sum(rows.map((r) => r.replied));
+  // Calculate totals
+  const totals = {
+    sent: sum(rows.map((r) => r.sent)),
+    delivered: sum(rows.map((r) => r.delivered)),
+    read: sum(rows.map((r) => r.read)),
+    replied: sum(rows.map((r) => r.replied)),
+  };
 
   return (
     <div className="page">
       <h1 className="page-title">Agency overview</h1>
 
       <div className="grid kpis">
-        <KpiCard label="Messages sent" value={fmt(sent)} />
-        <KpiCard label="Delivered" value={fmt(delivered)} />
-        <KpiCard label="Read" value={fmt(read)} />
-        <KpiCard label="Replies" value={fmt(replied)} />
+        <KpiCard label="Messages sent" value={formatNumber(totals.sent)} />
+        <KpiCard label="Delivered" value={formatNumber(totals.delivered)} />
+        <KpiCard label="Read" value={formatNumber(totals.read)} />
+        <KpiCard label="Replies" value={formatNumber(totals.replied)} />
       </div>
 
-      <div className="card">
+      <div className="card mt-6">
         <h2 className="section-title">Last 30 days</h2>
         <AgencyLineChart rows={rows} />
       </div>
