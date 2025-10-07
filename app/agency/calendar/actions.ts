@@ -148,6 +148,7 @@ export async function updateEventAction(input: UpdateEventInput) {
 
   try {
     // Update campaign with all fields
+    // @ts-ignore Supabase type inference issue
     const { error: campaignError } = await supabase
       .from('campaigns')
       .update({
@@ -166,6 +167,7 @@ export async function updateEventAction(input: UpdateEventInput) {
     }
 
     // Update calendar event
+    // @ts-ignore Supabase type inference issue
     const { error: eventError } = await supabase
       .from('calendar_events')
       .update({
@@ -183,6 +185,7 @@ export async function updateEventAction(input: UpdateEventInput) {
     }
 
     // Update send job run_at
+    // @ts-ignore Supabase type inference issue
     const { error: jobError } = await supabase
       .from('send_jobs')
       .update({ run_at: input.scheduledAt })
@@ -217,6 +220,7 @@ export async function cancelEventAction(eventId: string) {
     }
 
     // Update campaign status to cancelled
+    // @ts-ignore Supabase type inference issue
     const { error: campaignError } = await supabase
       .from('campaigns')
       .update({ status: 'cancelled' })
@@ -227,6 +231,7 @@ export async function cancelEventAction(eventId: string) {
     }
 
     // Update calendar event status
+    // @ts-ignore Supabase type inference issue
     const { error: eventError } = await supabase
       .from('calendar_events')
       .update({ event_status: 'cancelled' })
@@ -237,6 +242,7 @@ export async function cancelEventAction(eventId: string) {
     }
 
     // Cancel send job
+    // @ts-ignore Supabase type inference issue
     const { error: jobError } = await supabase
       .from('send_jobs')
       .update({ status: 'failed', last_error: 'Cancelled by user' })
