@@ -1,26 +1,27 @@
-import '../../../../styles/globals.css';
-import { requireOrgAccess } from '../../../../lib/auth';
+import { requireOrgAccess } from '@/lib/auth';
+import OrgNav from '@/components/OrgNav';
 
-export default async function Page({ params }: { params: { orgId: string } }) {
+type Params = {
+  params: {
+    orgId: string;
+  };
+};
+
+export default async function OrgCalendarPage({ params }: Params) {
   await requireOrgAccess(params.orgId);
+
   return (
     <div className="container">
-      <div className="tabbar">
-        <a className="btn" href={`/org/${params.orgId}`}>
-          Dashboard
-        </a>
-        <a className="btn btn-primary">Calendar</a>
-        <a className="btn" href={`/org/${params.orgId}/courses`}>
-          Courses
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/inbox`}>
-          Inbox
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/settings`}>
-          Settings
-        </a>
+      <OrgNav orgId={params.orgId} currentPath="calendar" />
+
+      <h1 className="text-2xl font-bold mb-6">Calendar</h1>
+
+      <div className="card">
+        <p className="text-muted-foreground text-center py-12">
+          Calendar view coming soon. You can schedule campaigns from the Agency
+          Calendar for now.
+        </p>
       </div>
-      <div className="card">Coming soon</div>
     </div>
   );
 }
