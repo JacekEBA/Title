@@ -1,110 +1,174 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useState } from 'react';
+import { useFormState } from 'react-dom';
 import { signInAction, signUpAction, sendResetAction } from '@/app/login/actions';
 
 type ActionState = { ok: boolean; message?: string };
 
-function SubmitButton({ children }: { children: React.ReactNode }) {
-  const { pending } = useFormStatus();
-  return (
-    <button className="btn-primary w-full" type="submit" disabled={pending}>
-      {pending ? 'Please wait…' : children}
-    </button>
-  );
-}
-
 export default function AuthCard() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [showForgot, setShowForgot] = useState(false);
-
-  const [signInState, signInActionBound] = useFormState<ActionState, FormData>(signInAction, { ok: false });
-  const [signUpState, signUpActionBound] = useFormState<ActionState, FormData>(signUpAction, { ok: false });
-  const [resetState, resetActionBound] = useFormState<ActionState, FormData>(sendResetAction, { ok: false });
-
-  const headline = useMemo(() => (mode === 'signin' ? 'Welcome back' : 'Create your account'), [mode]);
-
-  useEffect(() => {
-    if (signUpState.message && /already have an account/i.test(signUpState.message)) {
-      setMode('signin');
-    }
-  }, [signUpState.message]);
-
-  const shouldShowForgot = showForgot || (!!signInState.message && !signInState.ok);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
+  
+  const [signInState, signInFormAction] = useFormState<ActionState, FormData>(
+    signInAction,
+    { ok: false }
+  );
+  
+  const [signUpState, signUpFormAction] = useFormState<ActionState, FormData>(
+    signUpAction,
+    { ok: false }
+  );
+  
+  const [resetState, resetFormAction] = useFormState<ActionState, FormData>(
+    sendResetAction,
+    { ok: false }
+  );
 
   return (
-    <div className="auth-wrap">
-      <div className="brand">
-        <div className="flag" />
-        <span>Title</span>
-      </div>
-
-      <div className="auth-card">
-        <div className="tabs">
-          <button
-            className={mode === 'signin' ? 'tab active' : 'tab'}
-            onClick={() => setMode('signin')}
-            type="button"
-          >
-            Sign in
-          </button>
-          <button
-            className={mode === 'signup' ? 'tab active' : 'tab'}
-            onClick={() => setMode('signup')}
-            type="button"
-          >
-            Sign up
-          </button>
-        </div>
-
-        <h2 className="headline">{headline}</h2>
-        <p className="subtext">Golf-ready messaging for your courses.</p>
-
-        {mode === 'signin' && (
-          <form action={signInActionBound} className="form-grid">
-            <input name="email" type="email" placeholder="Email" required className="input" />
-            <input name="password" type="password" placeholder="Password" required className="input" />
-            {signInState.message && <div className="alert">{signInState.message}</div>}
-            <SubmitButton>Sign in</SubmitButton>
-          </form>
-        )}
-
-        {mode === 'signup' && (
-          <form action={signUpActionBound} className="form-grid">
-            <input name="email" type="email" placeholder="Email" required className="input" />
+    <div className="auth-card">
+      {mode === 'reset' ? (
+        <>
+          <h1 className="headline">Reset password</h1>
+          <p className="subtext">Enter your email to receive a reset link.</p>
+          
+          <form action={resetFormAction} className="form-grid">
             <input
-              name="password"
-              type="password"
-              placeholder="Password (min 8 chars)"
+              name="email"
+              type="email"
+              placeholder="Email"
               required
-              minLength={8}
               className="input"
             />
-            {signUpState.message && <div className={signUpState.ok ? 'notice' : 'alert'}>{signUpState.message}</div>}
-            <SubmitButton>Create account</SubmitButton>
-            <div className="muted hint">
-              Already have an account?{' '}
-              <button className="link" type="button" onClick={() => setMode('signin')}>
-                Sign in
-              </button>
-            </div>
+            
+            {resetState.message && (
+              <div className={resetState.ok ? 'notice' : 'alert'}>
+                {resetState.message}
+              </div>
+            )}
+            
+            <button className="btn-primary w-full" type="submit">
+              Send reset link
+            </button>
           </form>
-        )}
+          
+          <div className="hint muted">
+            Remember your password?{' '}
+            <button
+              onClick={() => setMode('signin')}
+              className="link"
+              type="button"
+            >
+              Sign in
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex gap-2 mb-6 border-b border-gray-200">
+            <button
+              type="button"
+              onClick={() => setMode('signin')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                mode === 'signin'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('signup')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                mode === 'signup'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Sign up
+            </button>
+          </div>
 
-        <div className="forgot">
-          <button className="link small" type="button" onClick={() => setShowForgot((s) => !s)}>
-            {shouldShowForgot ? 'Hide password reset' : 'Forgot password?'}
-          </button>
-          {shouldShowForgot && (
-            <form action={resetActionBound} className="form-inline">
-              <input name="email" type="email" placeholder="Your email" required className="input" />
-              <SubmitButton>Send reset link</SubmitButton>
-              {resetState.message && <div className={resetState.ok ? 'notice' : 'alert'}>{resetState.message}</div>}
-            </form>
+          {mode === 'signin' ? (
+            <>
+              <h1 className="headline">Welcome back</h1>
+              <p className="subtext">Golf-ready messaging for your courses.</p>
+              
+              <form action={signInFormAction} className="form-grid">
+                <input
+                  name="email"
+                  type="email"
+                  placeholder="Email"
+                  required
+                  className="input"
+                />
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Password"
+                  required
+                  className="input"
+                />
+                
+                {signInState.message && (
+                  <div className="alert">{signInState.message}</div>
+                )}
+                
+                <button className="btn-primary w-full" type="submit">
+                  Create account
+                </button>
+              </form>
+              
+              <div className="hint muted text-xs mt-4">
+                By signing up, you agree to our Terms of Service and Privacy Policy.
+              </div>
+            </>
           )}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
+Sign in
+                </button>
+              </form>
+              
+              <div className="hint muted">
+                <button
+                  onClick={() => setMode('reset')}
+                  className="link"
+                  type="button"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="headline">Create account</h1>
+              <p className="subtext">Get started with Title Golf RCS.</p>
+              
+              <form action={signUpFormAction} className="form-grid">
+                <input
+                  name="email"
+                  type="email"
+                  placeholder="Email"
+                  required
+                  className="input"
+                />
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Password (min 8 characters)"
+                  required
+                  minLength={8}
+                  className="input"
+                />
+                
+                {signUpState.message && (
+                  <div className={signUpState.ok ? 'notice' : 'alert'}>
+                    {signUpState.message}
+                  </div>
+                )}
+                
+                <button className="btn-primary w-full" type="submit">
