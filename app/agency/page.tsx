@@ -37,7 +37,7 @@ export default async function AgencyDashboardPage() {
     <div className="page">
       <h1 className="page-title">Agency overview</h1>
 
-      <div className="grid kpis">
+      <div className="kpis">
         <KpiCard label="Messages sent" value={formatNumber(totals.sent)} />
         <KpiCard label="Delivered" value={formatNumber(totals.delivered)} />
         <KpiCard label="Read" value={formatNumber(totals.read)} />
