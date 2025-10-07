@@ -66,6 +66,7 @@ export default function AgencySidebar() {
 
   return (
     <aside className="sidebar">
+      {/* Header with Logo */}
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <div className="sidebar-logo-icon">
@@ -77,6 +78,7 @@ export default function AgencySidebar() {
         </div>
       </div>
 
+      {/* Navigation Links */}
       <nav className="sidebar-nav">
         {navigation.map((item) => {
           const isActive = pathname === item.href || 
@@ -95,9 +97,10 @@ export default function AgencySidebar() {
         })}
       </nav>
 
+      {/* Footer */}
       <div className="sidebar-footer">
-        <div>Golf RCS • Agency</div>
-        <div className="mt-1">© {new Date().getFullYear()} All rights reserved</div>
+        <div className="font-medium">Golf RCS • Agency</div>
+        <div className="mt-1 opacity-60">© {new Date().getFullYear()} All rights reserved</div>
       </div>
     </aside>
   );
