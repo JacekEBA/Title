@@ -1,14 +1,16 @@
-import type { ReactNode } from 'react';
-
-import '@/styles/globals.css';
+import { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import AgencySidebar from '@/components/AgencySidebar';
 
-export default function Layout({ children }: { children: ReactNode }) {
+export const metadata: Metadata = {
+  title: 'Agency Dashboard',
+};
+
+export default function AgencyLayout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <AgencySidebar />
-      <section className="content">{children}</section>
+      <main className="content">{children}</main>
     </div>
   );
 }
-
