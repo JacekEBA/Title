@@ -1,26 +1,27 @@
-import '../../../../styles/globals.css';
-import { requireOrgAccess } from '../../../../lib/auth';
+import { requireOrgAccess } from '@/lib/auth';
+import OrgNav from '@/components/OrgNav';
 
-export default async function Page({ params }: { params: { orgId: string } }) {
+type Params = {
+  params: {
+    orgId: string;
+  };
+};
+
+export default async function OrgCoursesPage({ params }: Params) {
   await requireOrgAccess(params.orgId);
+
   return (
     <div className="container">
-      <div className="tabbar">
-        <a className="btn" href={`/org/${params.orgId}`}>
-          Dashboard
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/calendar`}>
-          Calendar
-        </a>
-        <a className="btn btn-primary">Courses</a>
-        <a className="btn" href={`/org/${params.orgId}/inbox`}>
-          Inbox
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/settings`}>
-          Settings
-        </a>
+      <OrgNav orgId={params.orgId} currentPath="courses" />
+
+      <h1 className="text-2xl font-bold mb-6">Courses</h1>
+
+      <div className="card">
+        <p className="text-muted-foreground text-center py-12">
+          Course management coming soon. Contact your agency administrator to
+          manage courses.
+        </p>
       </div>
-      <div className="card">Coming soon</div>
     </div>
   );
 }
