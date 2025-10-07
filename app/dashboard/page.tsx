@@ -13,6 +13,10 @@ type Membership = {
   organizations: Organization | null;
 };
 
+type Profile = {
+  role: string;
+};
+
 /**
  * Organization chooser + landing router.
  *
