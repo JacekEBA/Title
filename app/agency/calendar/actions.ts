@@ -56,7 +56,7 @@ export async function createPromoAction(input: CreatePromoInput) {
 
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
-      .insert(campaignData)
+      .insert([campaignData])
       .select('id')
       .single();
 
