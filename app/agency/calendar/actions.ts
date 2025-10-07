@@ -81,7 +81,7 @@ export async function createPromoAction(input: CreatePromoInput) {
 
     const { error: eventError } = await supabase
       .from('calendar_events')
-      .insert(eventData);
+      .insert([eventData]);
 
     if (eventError) {
       console.error('Calendar event creation error:', eventError);
@@ -98,7 +98,7 @@ export async function createPromoAction(input: CreatePromoInput) {
       run_at: input.scheduled_at,
     };
 
-    const { error: jobError } = await supabase.from('send_jobs').insert(jobData);
+    const { error: jobError } = await supabase.from('send_jobs').insert([jobData]);
 
     if (jobError) {
       console.error('Send job creation error:', jobError);
