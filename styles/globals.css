@@ -114,10 +114,6 @@
     @apply bg-primary text-primary-foreground hover:bg-primary/90 border-primary;
   }
 
-  .w-full {
-    @apply w-full;
-  }
-
   /* Form elements */
   .input {
     @apply flex h-10 w-full rounded-md border border-border bg-background 
