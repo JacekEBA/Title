@@ -42,7 +42,7 @@ export async function createPromoAction(input: CreatePromoInput) {
   const supabase = createSupabaseActionClient();
 
   try {
-    // Create campaign - let database use default values for status
+    // Create campaign
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .insert({
@@ -54,7 +54,6 @@ export async function createPromoAction(input: CreatePromoInput) {
         audience_kind: 'all_contacts',
         scheduled_at: input.scheduled_at,
         timezone: input.timezone,
-        // status defaults to 'scheduled' in database
       })
       .select('id')
       .single();
@@ -78,7 +77,6 @@ export async function createPromoAction(input: CreatePromoInput) {
         description: input.description?.trim() || null,
         start_time: input.scheduled_at,
         end_time: input.scheduled_at,
-        // event_status defaults to 'scheduled' in database
       });
 
     if (eventError) {
@@ -94,7 +92,6 @@ export async function createPromoAction(input: CreatePromoInput) {
     const { error: jobError } = await supabase.from('send_jobs').insert({
       campaign_id: campaign.id,
       run_at: input.scheduled_at,
-      // status defaults to 'pending' in database
     });
 
     if (jobError) {
