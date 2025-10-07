@@ -119,7 +119,7 @@ export default async function CalendarPage() {
       courseOptionsByOrg={courseOptionsByOrg}
       templateOptionsByOrg={templateOptionsByOrg}
       createPromoAction={createPromoAction}
-      updateEventTimeAction={updateEventTimeAction}
+      updateEventAction={updateEventAction}
       cancelEventAction={cancelEventAction}
     />
   );
