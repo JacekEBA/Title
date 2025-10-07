@@ -1,5 +1,16 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
+type AgencyOrganization = {
+  id: string;
+  name: string;
+  slug?: string | null;
+};
+
+type MembershipRow = {
+  role?: string;
+  organizations?: AgencyOrganization | null;
+};
+
 export async function getAccessibleOrgs() {
   const supabase = createSupabaseServerClient();
   
@@ -15,9 +26,9 @@ export async function getAccessibleOrgs() {
       .from('organizations')
       .select('id, name, slug')
       .order('name', { ascending: true });
-    
+
     if (error) throw error;
-    return data ?? [];
+    return (data as AgencyOrganization[]) ?? [];
   }
 
   // Otherwise, only show orgs they're a member of
@@ -25,15 +36,15 @@ export async function getAccessibleOrgs() {
     .from('org_memberships')
     .select('role, organizations:org_id(id, name, slug)')
     .in('role', ['owner', 'agency_staff', 'client_admin', 'client_viewer']);
-  
+
   if (error) throw error;
-  
-  const orgs = (data ?? [])
+
+  const orgs = ((data as MembershipRow[]) ?? [])
     .map((r) => r.organizations)
     .filter(Boolean);
-  
+
   // De-dupe by id
-  const byId = new Map<string, any>();
+  const byId = new Map<string, AgencyOrganization>();
   for (const o of orgs) if (o) byId.set(o.id, o);
   return Array.from(byId.values());
 }

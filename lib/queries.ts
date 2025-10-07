@@ -1,5 +1,13 @@
 import { createSupabaseServerClient } from './supabase/server';
 
+type OrganizationSummary = { id: string; name: string; slug?: string | null };
+type MembershipRecord = {
+  role?: string;
+  organizations?: OrganizationSummary | null;
+};
+
+type CourseRow = { id: string };
+
 export async function fetchOwnerOrgs() {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
@@ -7,9 +15,9 @@ export async function fetchOwnerOrgs() {
     .select('organizations:org_id(id, name, slug), role')
     .in('role', ['owner', 'agency_staff']);
   if (error) throw error;
-  return (data ?? [])
+  return ((data as MembershipRecord[]) ?? [])
     .map((d) => d.organizations)
-    .filter((org): org is { id: string; name: string; slug?: string | null } => Boolean(org));
+    .filter((org): org is OrganizationSummary => Boolean(org));
 }
 
 export async function fetchCalendar(params: {
@@ -43,7 +51,7 @@ export async function fetchOrgDashboard(orgId: string) {
     .select('id')
     .eq('org_id', orgId);
   if (courseIds.error) throw courseIds.error;
-  const ids = (courseIds.data ?? []).map((c) => c.id);
+  const ids = ((courseIds.data as CourseRow[] | null) ?? []).map((c) => c.id);
 
   let gbpData: any[] = [];
   if (ids.length) {

@@ -20,8 +20,8 @@ export function createSupabaseServerClient() {
         // No setAll here — you cannot modify cookies from a Server Component.
       },
       headers: { 'x-forwarded-host': headers().get('x-forwarded-host') ?? undefined },
-    }
-  );
+    } as any
+  ) as any;
 }
 
 /**
@@ -39,15 +39,15 @@ export function createSupabaseActionClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, any> }>) {
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set({ name, value, ...(options ?? {}) });
           });
         },
       },
       headers: { 'x-forwarded-host': headers().get('x-forwarded-host') ?? undefined },
-    }
-  );
+    } as any
+  ) as any;
 }
 
 /**
@@ -55,9 +55,9 @@ export function createSupabaseActionClient() {
  */
 export function createSupabaseAdminClient() {
   const { createClient } = require('@supabase/supabase-js');
-  return createClient<Database>(
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
+    { auth: { persistSession: false, autoRefreshToken: false } } as any
+  ) as any;
 }
