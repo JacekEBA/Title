@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { createSupabaseServerClient } from './supabase/server';
-import type { Profile, UserRole } from './types';
+import type { Profile, MembershipRole } from './types';
+
+// Type alias for compatibility
+export type UserRole = MembershipRole;
 
 /**
  * Get the current session, cached per request
@@ -37,7 +40,7 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
     return null;
   }
 
-  return data;
+  return data as Profile;
 });
 
 /**
@@ -129,9 +132,12 @@ export async function landingRedirectPath(): Promise<string> {
     .select('org_id')
     .order('created_at', { ascending: true });
 
+  type OrgMembership = { org_id: string };
+  const typedMemberships = (memberships as OrgMembership[] | null) ?? [];
+
   // If exactly one org, redirect there
-  if (memberships && memberships.length === 1) {
-    return `/org/${memberships[0].org_id}`;
+  if (typedMemberships.length === 1) {
+    return `/org/${typedMemberships[0].org_id}`;
   }
 
   // Otherwise, show org chooser
