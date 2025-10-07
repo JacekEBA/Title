@@ -58,6 +58,13 @@ export default function Calendar({ events, onSelectEvent }: CalendarProps) {
     setDate(newDate);
   };
 
+  const handleEventClick = (event: CalendarEvent) => {
+    console.log('Event clicked:', event);
+    if (onSelectEvent) {
+      onSelectEvent(event);
+    }
+  };
+
   return (
     <div>
       <div className="toolbar">
