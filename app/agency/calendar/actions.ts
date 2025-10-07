@@ -92,7 +92,7 @@ export async function createPromoAction(input: CreatePromoInput) {
     if (eventError) {
       console.error('Calendar event creation error:', eventError);
       // Attempt to clean up campaign
-      await supabase.from('campaigns').delete().eq('id', campaign.id);
+      await supabase.from('campaigns').delete().eq('id', (campaign as { id: string }).id);
       throw new Error(
         eventError.message || 'Failed to create calendar event'
       );
@@ -100,7 +100,7 @@ export async function createPromoAction(input: CreatePromoInput) {
 
     // Create send job
     const jobData = {
-      campaign_id: campaign.id,
+      campaign_id: (campaign as { id: string }).id,
       run_at: input.scheduled_at,
     };
 
@@ -112,7 +112,7 @@ export async function createPromoAction(input: CreatePromoInput) {
     if (jobError) {
       console.error('Send job creation error:', jobError);
       // Attempt to clean up
-      await supabase.from('campaigns').delete().eq('id', campaign.id);
+      await supabase.from('campaigns').delete().eq('id', (campaign as { id: string }).id);
       await supabase
         .from('calendar_events')
         .delete()
@@ -123,7 +123,7 @@ export async function createPromoAction(input: CreatePromoInput) {
     // Revalidate the calendar page
     revalidatePath('/agency/calendar');
 
-    return { success: true, campaign_id: campaign.id };
+    return { success: true, campaign_id: (campaign as { id: string }).id };
   } catch (error) {
     console.error('Create promo action error:', error);
     throw error;
