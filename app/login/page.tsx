@@ -1,34 +1,18 @@
-import '../../styles/globals.css';
-import { redirect } from 'next/navigation';
-import { landingRedirectPath } from '../../lib/auth';
-import { createSupabaseActionClient } from '../../lib/supabase/server';
+import '@/styles/globals.css';
+import AuthCard from '@/components/AuthCard';
 
-export default async function Page() {
-  async function signIn(formData: FormData) {
-    'use server';
-    const supabase = createSupabaseActionClient();
-    const email = String(formData.get('email') || '');
-    const password = String(formData.get('password') || '');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+export const metadata = {
+  title: 'Sign in • Title',
+  description: 'RCS promos for golf courses',
+};
 
-    // After auth, cookies are set by the action client; now decide landing.
-    const path = await landingRedirectPath();
-    redirect(path);
-  }
-
+export default function Page() {
   return (
-    <div className="container">
-      <div className="card" style={{ maxWidth: 420, margin: '80px auto' }}>
-        <h2>Sign in to Title</h2>
-        <form action={signIn} style={{ display: 'grid', gap: 12 }}>
-          <input className="input" name="email" placeholder="Email" type="email" required />
-          <input className="input" name="password" placeholder="Password" type="password" required />
-          <button className="btn btn-primary" type="submit">
-            Sign in
-          </button>
-        </form>
-      </div>
-    </div>
+    <main className="login-bg">
+      <AuthCard />
+      <footer className="login-footer">
+        <span>© {new Date().getFullYear()} Title • Golf-first RCS</span>
+      </footer>
+    </main>
   );
 }
