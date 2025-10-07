@@ -46,7 +46,7 @@ export default function AuthCard() {
               </div>
             )}
             
-            <button className="btn-primary w-full" type="submit">
+            <button className="btn btn-primary w-full" type="submit">
               Send reset link
             </button>
           </form>
@@ -114,22 +114,8 @@ export default function AuthCard() {
                   <div className="alert">{signInState.message}</div>
                 )}
                 
-                <button className="btn-primary w-full" type="submit">
-                  Create account
-                </button>
-              </form>
-              
-              <div className="hint muted text-xs mt-4">
-                By signing up, you agree to our Terms of Service and Privacy Policy.
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-Sign in
+                <button className="btn btn-primary w-full" type="submit">
+                  Sign in
                 </button>
               </form>
               
@@ -171,4 +157,18 @@ Sign in
                   </div>
                 )}
                 
-                <button className="btn-primary w-full" type="submit">
+                <button className="btn btn-primary w-full" type="submit">
+                  Create account
+                </button>
+              </form>
+              
+              <div className="hint muted text-xs mt-4">
+                By signing up, you agree to our Terms of Service and Privacy Policy.
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
