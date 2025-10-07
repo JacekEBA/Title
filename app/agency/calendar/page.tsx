@@ -68,6 +68,37 @@ export default async function Page() {
     }
   }
 
+  const createPromo = async (formData: FormData) => {
+    "use server";
+
+    const getString = (key: string) => {
+      const value = formData.get(key);
+      return typeof value === "string" ? value.trim() : "";
+    };
+
+    const scheduledAtRaw = getString("scheduled_at");
+    const scheduledAtIso = (() => {
+      if (!scheduledAtRaw) return "";
+      const parsed = new Date(scheduledAtRaw);
+      return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+    })();
+
+    await createPromoAction({
+      org_id: getString("org_id"),
+      course_id: getString("course_id"),
+      template_id: getString("template_id"),
+      name: getString("name"),
+      description: (() => {
+        const description = formData.get("description");
+        if (typeof description !== "string") return null;
+        const trimmed = description.trim();
+        return trimmed.length ? trimmed : null;
+      })(),
+      scheduled_at: scheduledAtIso,
+      timezone: getString("timezone"),
+    });
+  };
+
   return (
     <div className="page">
       <div className="page-header">
@@ -76,34 +107,7 @@ export default async function Page() {
           orgOptions={orgOptions}
           courseOptionsByOrg={courseOptionsByOrg}
           templateOptionsByOrg={templateOptionsByOrg}
-          action={async (formData) => {
-            const getString = (key: string) => {
-              const value = formData.get(key);
-              return typeof value === "string" ? value.trim() : "";
-            };
-
-            const scheduledAtRaw = getString("scheduled_at");
-            const scheduledAtIso = (() => {
-              if (!scheduledAtRaw) return "";
-              const parsed = new Date(scheduledAtRaw);
-              return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
-            })();
-
-            await createPromoAction({
-              org_id: getString("org_id"),
-              course_id: getString("course_id"),
-              template_id: getString("template_id"),
-              name: getString("name"),
-              description: (() => {
-                const description = formData.get("description");
-                if (typeof description !== "string") return null;
-                const trimmed = description.trim();
-                return trimmed.length ? trimmed : null;
-              })(),
-              scheduled_at: scheduledAtIso,
-              timezone: getString("timezone"),
-            });
-          }}
+          action={createPromo}
         />
       </div>
       <div className="card">
