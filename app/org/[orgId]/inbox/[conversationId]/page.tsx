@@ -3,7 +3,7 @@ import ChatThread from '../../../../../components/ChatThread';
 import MessageComposer from '../../../../../components/MessageComposer';
 import { requireOrgAccess } from '../../../../../lib/auth';
 import { sendRcsMessage } from '../../../../../lib/pinnacle';
-import { createSupabaseServerClient } from '../../../../../lib/supabase/server';
+import { createSupabaseServerClient, createSupabaseActionClient } from '../../../../../lib/supabase/server';
 
 export default async function Page({
   params,
@@ -20,7 +20,7 @@ export default async function Page({
 
   async function sendMessageAction(formData: FormData) {
     'use server';
-    const supa = createSupabaseServerClient();
+    const supa = createSupabaseActionClient();
     const conversationId = String(formData.get('conversation_id'));
     const body = String(formData.get('body') || '');
 

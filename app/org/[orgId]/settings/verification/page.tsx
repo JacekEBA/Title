@@ -1,7 +1,7 @@
 import '../../../../../styles/globals.css';
 import { redirect } from 'next/navigation';
 import { requireOrgAccess } from '../../../../../lib/auth';
-import { createSupabaseServerClient } from '../../../../../lib/supabase/server';
+import { createSupabaseActionClient } from '../../../../../lib/supabase/server';
 
 function getBaseUrl() {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
@@ -14,7 +14,7 @@ export default async function Page({ params }: { params: { orgId: string } }) {
 
   async function submit(formData: FormData) {
     'use server';
-    const supa = createSupabaseServerClient();
+    const supa = createSupabaseActionClient();
     const fields = Object.fromEntries(formData.entries());
     const { data: userData } = await supa.auth.getUser();
     const ins = await supa

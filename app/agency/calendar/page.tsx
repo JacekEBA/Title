@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import AddPromoModal from '../../../components/AddPromoModal';
 import Calendar from '../../../components/Calendar';
 import { fetchCalendar, fetchOwnerOrgs } from '../../../lib/queries';
-import { createSupabaseServerClient } from '../../../lib/supabase/server';
+import { createSupabaseServerClient, createSupabaseActionClient } from '../../../lib/supabase/server';
 import { z } from 'zod';
 
 export default async function Page() {
@@ -31,7 +31,7 @@ export default async function Page() {
 
   async function createPromoAction(formData: FormData) {
     'use server';
-    const supa = createSupabaseServerClient();
+    const supa = createSupabaseActionClient();
     const raw = Object.fromEntries(formData.entries());
     const schema = z.object({
       org_id: z.string().uuid(),
