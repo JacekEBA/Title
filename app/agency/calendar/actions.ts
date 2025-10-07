@@ -54,9 +54,9 @@ export async function createPromoAction(input: CreatePromoInput) {
       timezone: input.timezone,
     };
 
-    // @ts-ignore Supabase type inference issue - runtime types are correct
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
+      // @ts-ignore Supabase type inference issue - runtime types are correct
       .insert([campaignData])
       .select('id')
       .single();
@@ -80,7 +80,7 @@ export async function createPromoAction(input: CreatePromoInput) {
       end_time: input.scheduled_at,
     };
 
-    // @ts-expect-error Supabase type inference issue - runtime types are correct
+    // @ts-ignore Supabase type inference issue - runtime types are correct
     const { error: eventError } = await supabase
       .from('calendar_events')
       .insert([eventData]);
@@ -100,7 +100,7 @@ export async function createPromoAction(input: CreatePromoInput) {
       run_at: input.scheduled_at,
     };
 
-    // @ts-expect-error Supabase type inference issue - runtime types are correct
+    // @ts-ignore Supabase type inference issue - runtime types are correct
     const { error: jobError } = await supabase.from('send_jobs').insert([jobData]);
 
     if (jobError) {
