@@ -102,16 +102,26 @@ export default function CalendarWithEdit({
         <EditEventModal
           event={{
             id: selectedEvent.id,
+            campaignId: selectedEvent.campaignId,
             title: selectedEvent.title,
             description: selectedEvent.description,
             scheduledAt: selectedEvent.scheduledAt,
+            orgId: selectedEvent.orgId,
+            courseId: selectedEvent.courseId,
+            templateId: selectedEvent.templateId,
             orgName: selectedEvent.orgName,
             courseName: selectedEvent.courseName,
             templateName: selectedEvent.templateName,
+            timezone: selectedEvent.timezone,
             status: selectedEvent.campaignStatus,
           }}
+          orgOptions={orgOptions}
+          courseOptionsByOrg={courseOptionsByOrg}
+          templateOptionsByOrg={templateOptionsByOrg}
           onClose={() => setSelectedEvent(null)}
-          onUpdate={handleUpdateEvent}
+          onUpdate={async (data) => {
+            await handleUpdateEvent(data.eventId, data.scheduledAt);
+          }}
           onCancel={handleCancelEvent}
         />
       )}
