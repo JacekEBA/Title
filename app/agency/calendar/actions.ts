@@ -14,7 +14,27 @@ type CreatePromoInput = {
   timezone: string;
 };
 
-export async function createPromoAction(input: CreatePromoInput) {
+function parseCreatePromoInput(input: CreatePromoInput | FormData): CreatePromoInput {
+  if (input instanceof FormData) {
+    return {
+      org_id: String(input.get('org_id') ?? ''),
+      course_id: String(input.get('course_id') ?? ''),
+      template_id: String(input.get('template_id') ?? ''),
+      name: String(input.get('name') ?? ''),
+      description: input.get('description')
+        ? String(input.get('description'))
+        : null,
+      scheduled_at: String(input.get('scheduled_at') ?? ''),
+      timezone: String(input.get('timezone') ?? ''),
+    };
+  }
+
+  return input;
+}
+
+export async function createPromoAction(rawInput: CreatePromoInput | FormData) {
+  const input = parseCreatePromoInput(rawInput);
+
   if (!input.org_id) {
     throw new Error('Organization is required.');
   }
@@ -30,9 +50,6 @@ export async function createPromoAction(input: CreatePromoInput) {
   if (!input.scheduled_at) {
     throw new Error('Scheduled time is required.');
   }
-  if (!input.timezone) {
-    throw new Error('Timezone is required.');
-  }
 
   // Validate ISO timestamp
   const scheduledDate = new Date(input.scheduled_at);
@@ -41,6 +58,45 @@ export async function createPromoAction(input: CreatePromoInput) {
   }
 
   const supabase = createSupabaseActionClient();
+
+  const [{ data: course, error: courseError }, { data: template, error: templateError }] =
+    await Promise.all([
+      supabase
+        .from('courses')
+        .select('id, org_id, timezone')
+        .eq('id', input.course_id)
+        .maybeSingle(),
+      supabase
+        .from('rcs_templates')
+        .select('id, org_id')
+        .eq('id', input.template_id)
+        .maybeSingle(),
+    ]);
+
+  if (courseError) {
+    console.error('Error loading course for promo:', courseError);
+    throw new Error('Could not load course details.');
+  }
+  if (!course) {
+    throw new Error('Course not found.');
+  }
+  if (course.org_id !== input.org_id) {
+    throw new Error('Selected course does not belong to the chosen organization.');
+  }
+
+  if (templateError) {
+    console.error('Error loading template for promo:', templateError);
+    throw new Error('Could not load template details.');
+  }
+  if (!template) {
+    throw new Error('Template not found.');
+  }
+  if (template.org_id !== input.org_id) {
+    throw new Error('Selected template does not belong to the chosen organization.');
+  }
+
+  const timezone = (course.timezone ?? '').trim() || (input.timezone ?? '').trim() || 'UTC';
+  const scheduledAt = scheduledDate.toISOString();
 
   try {
     // Create campaign
@@ -51,8 +107,8 @@ export async function createPromoAction(input: CreatePromoInput) {
       name: input.name.trim(),
       description: input.description?.trim() || null,
       audience_kind: 'all_contacts' as const,
-      scheduled_at: input.scheduled_at,
-      timezone: input.timezone,
+      scheduled_at: scheduledAt,
+      timezone,
     };
 
     const { data: campaign, error: campaignError } = await supabase
@@ -80,8 +136,8 @@ export async function createPromoAction(input: CreatePromoInput) {
       campaign_id: (campaign as { id: string }).id,
       title: input.name.trim(),
       description: input.description?.trim() || null,
-      start_time: input.scheduled_at,
-      end_time: input.scheduled_at,
+      start_time: scheduledAt,
+      end_time: scheduledAt,
     };
 
     // @ts-ignore
@@ -102,7 +158,7 @@ export async function createPromoAction(input: CreatePromoInput) {
     // Create send job
     const jobData = {
       campaign_id: (campaign as { id: string }).id,
-      run_at: input.scheduled_at,
+      run_at: scheduledAt,
     };
 
     // @ts-ignore
@@ -147,6 +203,50 @@ type UpdateEventInput = {
 export async function updateEventAction(input: UpdateEventInput) {
   const supabase = createSupabaseActionClient();
 
+  const scheduledDate = new Date(input.scheduledAt);
+  if (isNaN(scheduledDate.getTime())) {
+    throw new Error('Invalid scheduled time format.');
+  }
+
+  const [{ data: course, error: courseError }, { data: template, error: templateError }] =
+    await Promise.all([
+      supabase
+        .from('courses')
+        .select('id, org_id, timezone')
+        .eq('id', input.courseId)
+        .maybeSingle(),
+      supabase
+        .from('rcs_templates')
+        .select('id, org_id')
+        .eq('id', input.templateId)
+        .maybeSingle(),
+    ]);
+
+  if (courseError) {
+    console.error('Failed to load course for update:', courseError);
+    throw new Error('Could not load course details.');
+  }
+  if (!course) {
+    throw new Error('Course not found.');
+  }
+  if (course.org_id !== input.orgId) {
+    throw new Error('Selected course does not belong to the chosen organization.');
+  }
+
+  if (templateError) {
+    console.error('Failed to load template for update:', templateError);
+    throw new Error('Could not load template details.');
+  }
+  if (!template) {
+    throw new Error('Template not found.');
+  }
+  if (template.org_id !== input.orgId) {
+    throw new Error('Selected template does not belong to the chosen organization.');
+  }
+
+  const timezone = (course.timezone ?? '').trim() || (input.timezone ?? '').trim() || 'UTC';
+  const scheduledAt = scheduledDate.toISOString();
+
   try {
     // @ts-ignore
     const { error: campaignError } = await supabase
@@ -155,8 +255,8 @@ export async function updateEventAction(input: UpdateEventInput) {
       .update({
         name: input.name,
         description: input.description,
-        scheduled_at: input.scheduledAt,
-        timezone: input.timezone,
+        scheduled_at: scheduledAt,
+        timezone,
         org_id: input.orgId,
         course_id: input.courseId,
         template_id: input.templateId,
@@ -174,8 +274,8 @@ export async function updateEventAction(input: UpdateEventInput) {
       .update({
         title: input.name,
         description: input.description,
-        start_time: input.scheduledAt,
-        end_time: input.scheduledAt,
+        start_time: scheduledAt,
+        end_time: scheduledAt,
         org_id: input.orgId,
         course_id: input.courseId,
       })
@@ -189,7 +289,7 @@ export async function updateEventAction(input: UpdateEventInput) {
     const { error: jobError } = await supabase
       .from('send_jobs')
       // @ts-ignore
-      .update({ run_at: input.scheduledAt })
+      .update({ run_at: scheduledAt })
       .eq('campaign_id', input.campaignId)
       .eq('status', 'pending');
 
