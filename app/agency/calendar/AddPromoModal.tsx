@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useEffect, useState, type ReactNode } from "react";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -12,14 +11,21 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export default function AddPromoModal() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+type Props = {
+  orgOptions: Array<{ id: string; name: string }>;
+  courseOptionsByOrg: Record<string, Array<{ id: string; name: string; timezone: string }>>;
+  templateOptionsByOrg: Record<string, Array<{ id: string; name: string }>>;
+  action: (formData: FormData) => Promise<void>;
+};
+
+export default function AddPromoModal({
+  orgOptions,
+  courseOptionsByOrg,
+  templateOptionsByOrg,
+  action,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const [orgs, setOrgs] = useState<Array<{ id: string; name: string }>>([]);
-  const [courses, setCourses] = useState<Array<{ id: string; name: string; timezone: string }>>([]);
-  const [templates, setTemplates] = useState<Array<{ id: string; name: string }>>([]);
 
   const [orgId, setOrgId] = useState("");
   const [courseId, setCourseId] = useState("");
@@ -30,36 +36,18 @@ export default function AddPromoModal() {
   const [scheduledAt, setScheduledAt] = useState("");
   const [timezone, setTimezone] = useState("");
 
+  // Get courses and templates for selected org
+  const courses = orgId ? (courseOptionsByOrg[orgId] ?? []) : [];
+  const templates = orgId ? (templateOptionsByOrg[orgId] ?? []) : [];
+
+  // Reset dependent fields when org changes
   useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.from("organizations").select("id,name").order("name");
-      if (!error && data) {
-        setOrgs(data as Array<{ id: string; name: string }>);
-      }
-    })();
-  }, [supabase]);
+    setCourseId("");
+    setTemplateId("");
+    setTimezone("");
+  }, [orgId]);
 
-  useEffect(() => {
-    if (!orgId) {
-      setCourses([]);
-      setTemplates([]);
-      setCourseId("");
-      setTemplateId("");
-      setTimezone("");
-      return;
-    }
-
-    (async () => {
-      const [{ data: courseData }, { data: templateData }] = await Promise.all([
-        supabase.from("courses").select("id,name,timezone").eq("org_id", orgId).order("name"),
-        supabase.from("rcs_templates").select("id,name").eq("org_id", orgId).order("name"),
-      ]);
-
-      setCourses((courseData as Array<{ id: string; name: string; timezone: string }>) ?? []);
-      setTemplates((templateData as Array<{ id: string; name: string }>) ?? []);
-    })();
-  }, [orgId, supabase]);
-
+  // Update timezone when course changes
   useEffect(() => {
     const course = courses.find((c) => c.id === courseId);
     setTimezone(course?.timezone ?? "");
@@ -86,55 +74,24 @@ export default function AddPromoModal() {
 
     setLoading(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id ?? null;
+      const formData = new FormData();
+      formData.set("org_id", orgId);
+      formData.set("course_id", courseId);
+      formData.set("template_id", templateId);
+      formData.set("name", name);
+      formData.set("description", description);
+      formData.set("scheduled_at", scheduledAt);
+      formData.set("timezone", timezone);
 
-      const payload = {
-        org_id: orgId,
-        course_id: courseId,
-        template_id: templateId,
-        name,
-        description: description || null,
-        scheduled_at: new Date(scheduledAt).toISOString(),
-        timezone,
-        status: "scheduled",
-        audience_kind: "all_contacts",
-        client_visible: true,
-        created_by: userId,
-      } as const;
-
-      const { data, error } = await supabase
-        .from("campaigns")
-        .insert(payload)
-        .select("id")
-        .single();
-
-      if (error) {
-        console.error(error);
-        alert(`Failed to create campaign: ${error.message}`);
-        return;
-      }
-
-      try {
-        await supabase.from("calendar_events").insert({
-          org_id: orgId,
-          course_id: courseId,
-          campaign_id: data.id,
-          title: name,
-          description: description || null,
-          start_time: new Date(scheduledAt).toISOString(),
-          status: "scheduled",
-          is_client_visible: true,
-          event_type: "campaign",
-          event_status: "scheduled",
-        });
-      } catch (calendarError) {
-        console.warn("Calendar insert skipped/failed:", calendarError);
-      }
+      await action(formData);
 
       alert("Campaign scheduled!");
       resetForm();
       setOpen(false);
+      window.location.reload(); // Reload to show new event
+    } catch (error) {
+      console.error(error);
+      alert(`Failed to create campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -175,7 +132,7 @@ export default function AddPromoModal() {
                   required
                 >
                   <option value="">Select organization…</option>
-                  {orgs.map((org) => (
+                  {orgOptions.map((org) => (
                     <option key={org.id} value={org.id}>
                       {org.name}
                     </option>
@@ -189,8 +146,11 @@ export default function AddPromoModal() {
                   onChange={(event) => setCourseId(event.target.value)}
                   className="w-full border rounded p-2"
                   required
+                  disabled={!orgId}
                 >
-                  <option value="">Select course…</option>
+                  <option value="">
+                    {!orgId ? "Select organization first…" : "Select course…"}
+                  </option>
                   {courses.map((course) => (
                     <option key={course.id} value={course.id}>
                       {course.name}
@@ -205,8 +165,11 @@ export default function AddPromoModal() {
                   onChange={(event) => setTemplateId(event.target.value)}
                   className="w-full border rounded p-2"
                   required
+                  disabled={!orgId}
                 >
-                  <option value="">Select RCS template…</option>
+                  <option value="">
+                    {!orgId ? "Select organization first…" : "Select RCS template…"}
+                  </option>
                   {templates.map((template) => (
                     <option key={template.id} value={template.id}>
                       {template.name}
