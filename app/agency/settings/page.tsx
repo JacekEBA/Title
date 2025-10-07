@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import SignOutButton from './SignOutButton';
 import { signOutAction } from './actions';
+import SignOutButton from './SignOutButton';
 
 export const metadata: Metadata = {
   title: 'Settings',
