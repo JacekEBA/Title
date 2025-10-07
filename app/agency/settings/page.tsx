@@ -1,24 +1,26 @@
-import '../../../styles/globals.css';
+import SignOutButton from './SignOutButton';
+import { signOutAction } from './actions';
+
+export const metadata = { title: 'Agency • Settings' };
 
 export default function Page() {
   return (
-    <div className="container">
-      <div className="tabbar">
-        <a className="btn" href="/agency/calendar">
-          Calendar
-        </a>
-        <a className="btn" href="/agency/clients">
-          Clients
-        </a>
-        <a className="btn" href="/agency/analytics">
-          Analytics
-        </a>
-        <a className="btn" href="/agency/inbox">
-          Inbox
-        </a>
-        <a className="btn btn-primary">Settings</a>
+    <div className="page">
+      <h1 className="page-title">Settings</h1>
+
+      <div className="card">
+        <h2 className="section-title">Account</h2>
+        <p className="muted">Sign out of the agency dashboard.</p>
+        <form action={signOutAction}>
+          <SignOutButton />
+        </form>
       </div>
-      <div className="card">Coming soon</div>
+
+      <div className="card">
+        <h2 className="section-title">Preferences</h2>
+        <p className="muted">Theme, notifications, and other preferences can go here.</p>
+      </div>
     </div>
   );
 }
+
