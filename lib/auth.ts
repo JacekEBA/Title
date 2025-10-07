@@ -8,22 +8,31 @@ export async function getSession() {
   return session ?? null;
 }
 
+/**
+ * Decide where the user should land after auth.
+ *
+ * owner or agency_staff -> /agency
+ *
+ * exactly one org -> /org/[orgId]
+ *
+ * otherwise -> /dashboard?pickOrg=1 (org chooser)
+ */
 export async function landingRedirectPath() {
   const supabase = createSupabaseServerClient();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .maybeSingle();
-  if (profile?.role === 'owner') return '/agency';
-  const { data: mems } = await supabase
-    .from('org_memberships')
-    .select('org_id, role');
-  const owners = (mems ?? []).filter(
-    (m) => m.role === 'owner' || m.role === 'agency_staff'
-  );
-  if (owners.length > 0) return '/agency';
-  if ((mems ?? []).length === 1) return `/org/${(mems ?? [])[0].org_id}`;
-  return '/login?pickOrg=1';
+  const { data: profile } = await supabase.from('profiles').select('role').maybeSingle();
+  const { data: mems } = await supabase.from('org_memberships').select('org_id, role');
+  const roles = (mems ?? []).map((m) => m.role);
+
+  if (profile?.role === 'owner' || roles.includes('owner') || roles.includes('agency_staff')) {
+    return '/agency';
+  }
+  if ((mems ?? []).length === 1) {
+    const membership = mems?.[0];
+    if (membership) {
+      return `/org/${membership.org_id}`;
+    }
+  }
+  return '/dashboard?pickOrg=1';
 }
 
 export async function requireOrgAccess(orgId: string) {

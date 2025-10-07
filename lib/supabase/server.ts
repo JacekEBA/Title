@@ -3,9 +3,9 @@ import { createServerClient } from '@supabase/ssr';
 import type { Database } from '../../types/database';
 
 /**
- * Read-only Supabase client for Server Components.
+ * Read-only client for Server Components (no cookie writes).
  *
- * It never writes cookies, so it is safe to call during render.
+ * Uses the new getAll API so SSR won’t warn; does NOT provide setAll.
  */
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
@@ -14,8 +14,10 @@ export function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        // No set/remove here — Server Components must not mutate cookies
+        getAll() {
+          return cookieStore.getAll();
+        },
+        // No setAll here — you cannot modify cookies from a Server Component.
       },
       headers: { 'x-forwarded-host': headers().get('x-forwarded-host') ?? undefined },
     }
@@ -23,9 +25,9 @@ export function createSupabaseServerClient() {
 }
 
 /**
- * Write-enabled Supabase client for Server Actions and Route Handlers.
+ * Write-enabled client for Server Actions and Route Handlers.
  *
- * This variant is allowed to modify cookies.
+ * Supplies getAll + setAll; safe to mutate cookies in these contexts.
  */
 export function createSupabaseActionClient() {
   const cookieStore = cookies();
@@ -34,11 +36,14 @@ export function createSupabaseActionClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
-        set: (name: string, value: string, options: any) =>
-          cookieStore.set({ name, value, ...options }),
-        remove: (name: string, options: any) =>
-          cookieStore.set({ name, value: '', ...options, maxAge: 0 }),
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set({ name, value, ...(options ?? {}) });
+          });
+        },
       },
       headers: { 'x-forwarded-host': headers().get('x-forwarded-host') ?? undefined },
     }
@@ -46,9 +51,7 @@ export function createSupabaseActionClient() {
 }
 
 /**
- * Admin client for background jobs / webhooks (service role).
- *
- * Bypasses RLS by design — DO NOT use in pages/components.
+ * Admin client for cron/webhooks (service role; bypasses RLS by design).
  */
 export function createSupabaseAdminClient() {
   const { createClient } = require('@supabase/supabase-js');
