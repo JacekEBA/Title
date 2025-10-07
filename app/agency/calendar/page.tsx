@@ -85,7 +85,7 @@ export default async function CalendarPage() {
       });
     }
 
-    for (const campaign of campaigns ?? []) {
+   for (const campaign of campaigns ?? []) {
       if (!campaign?.id) continue;
       campaignMap[campaign.id] = campaign;
     }
@@ -94,6 +94,10 @@ export default async function CalendarPage() {
   // Enrich events with details
   const enrichedEvents = eventsRaw.map((e) => {
     const campaign = e.campaign_id ? campaignMap[e.campaign_id] : null;
+    
+    // Get course to extract timezone
+    const course = e.course_id ? courseOptionsByOrg[e.org_id]?.find(c => c.id === e.course_id) : null;
+    
     return {
       id: e.id,
       title: e.title ?? 'Promo',
@@ -101,13 +105,15 @@ export default async function CalendarPage() {
       end: e.end_time ?? e.start_time,
       description: e.description,
       orgId: e.org_id,
-      courseId: e.course_id,
-      campaignId: e.campaign_id,
+      courseId: e.course_id ?? '',
+      campaignId: e.campaign_id ?? '',
+      templateId: campaign?.template_id ?? '',
       status: e.event_status,
       orgName: orgMap[e.org_id] ?? 'Unknown',
       courseName: e.course_id ? (courseMap[e.course_id] ?? 'Unknown') : 'N/A',
       templateName: campaign?.template_id ? (templateMap[campaign.template_id] ?? 'Unknown') : 'N/A',
       scheduledAt: campaign?.scheduled_at ?? e.start_time,
+      timezone: course?.timezone ?? 'UTC',
       campaignStatus: campaign?.status ?? 'unknown',
     };
   });
