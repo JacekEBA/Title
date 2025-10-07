@@ -140,16 +140,12 @@
   }
 
   /* Grid layouts */
-  .grid {
-    @apply grid gap-4;
+  .cards {
+    @apply grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
   }
 
-  .grid.cards {
-    @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
-  }
-
-  .grid.kpis {
-    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  .kpis {
+    @apply grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
   }
 
   .row {
