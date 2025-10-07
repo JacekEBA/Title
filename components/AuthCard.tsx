@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { signInAction, signUpAction, sendResetAction } from '@/app/login/actions';
 
@@ -24,6 +24,12 @@ export default function AuthCard() {
   const [resetState, resetActionBound] = useFormState<ActionState, FormData>(sendResetAction, { ok: false });
 
   const headline = useMemo(() => (mode === 'signin' ? 'Welcome back' : 'Create your account'), [mode]);
+
+  useEffect(() => {
+    if (signUpState.message && /already have an account/i.test(signUpState.message)) {
+      setMode('signin');
+    }
+  }, [signUpState.message]);
 
   const shouldShowForgot = showForgot || (!!signInState.message && !signInState.ok);
 
@@ -67,7 +73,14 @@ export default function AuthCard() {
         {mode === 'signup' && (
           <form action={signUpActionBound} className="form-grid">
             <input name="email" type="email" placeholder="Email" required className="input" />
-            <input name="password" type="password" placeholder="Password (min 8 chars)" required minLength={8} className="input" />
+            <input
+              name="password"
+              type="password"
+              placeholder="Password (min 8 chars)"
+              required
+              minLength={8}
+              className="input"
+            />
             {signUpState.message && <div className={signUpState.ok ? 'notice' : 'alert'}>{signUpState.message}</div>}
             <SubmitButton>Create account</SubmitButton>
             <div className="muted hint">
