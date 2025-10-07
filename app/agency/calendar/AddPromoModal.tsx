@@ -154,6 +154,17 @@ export default function AddPromoModal() {
       {open && (
         <div className="modal-overlay">
           <div className="modal">
+            <button
+              type="button"
+              className="btn mb-2"
+              onClick={() => {
+                resetForm();
+                setOpen(false);
+              }}
+              disabled={loading}
+            >
+              Back
+            </button>
             <h3 className="section-title">Schedule RCS Promo</h3>
             <form onSubmit={handleSubmit} className="space-y-4 p-4">
               <Field label="Organization">

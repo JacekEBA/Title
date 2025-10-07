@@ -93,8 +93,27 @@ export default function AddPromoModal({
       {open && (
         <div
           className="card"
-          style={{ position: 'fixed', inset: '10% 20%', background: '#fff', zIndex: 50 }}
+          style={{
+            position: 'fixed',
+            inset: '10% 20%',
+            background: '#fff',
+            zIndex: 50,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
         >
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              resetFormState();
+              setOpen(false);
+            }}
+            style={{ marginBottom: 8 }}
+            disabled={isPending}
+          >
+            Back
+          </button>
           <h3 style={{ marginBottom: 12 }}>Schedule RCS Promo</h3>
           <form style={{ display: 'grid', gap: 10 }} onSubmit={handleSubmit}>
             <label>
