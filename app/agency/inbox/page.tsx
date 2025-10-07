@@ -1,33 +1,63 @@
-import '../../../styles/globals.css';
-import ConversationList from '../../../components/ConversationList';
-import { createSupabaseServerClient } from '../../../lib/supabase/server';
+import type { Metadata } from 'next';
+import LineChart from '@/components/LineChart';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
-export default async function Page() {
+export const metadata: Metadata = {
+  title: 'Analytics',
+};
+
+type MetricRow = {
+  date: string;
+  delivered_like: number | null;
+  replies: number | null;
+  clicks: number | null;
+  reads: number | null;
+};
+
+export default async function AnalyticsPage() {
   const supabase = createSupabaseServerClient();
-  const { data } = await supabase
-    .from('conversations')
-    .select('id, org_id, last_message_at, unread_count')
-    .order('last_message_at', { ascending: false })
-    .limit(50);
+  
+  const { data: rows } = await supabase
+    .from('agency_daily_metrics')
+    .select('date, delivered_like, replies, clicks, reads')
+    .order('date', { ascending: true });
+
+  const metrics = (rows as MetricRow[]) ?? [];
+  const labels = metrics.map((row) => row.date);
+  const delivered = metrics.map((row) => row.delivered_like ?? 0);
+  const replies = metrics.map((row) => row.replies ?? 0);
+  const clicks = metrics.map((row) => row.clicks ?? 0);
+  const reads = metrics.map((row) => row.reads ?? 0);
+
   return (
-    <div className="container">
-      <div className="tabbar">
-        <a className="btn" href="/agency/calendar">
-          Calendar
-        </a>
-        <a className="btn" href="/agency/clients">
-          Clients
-        </a>
-        <a className="btn" href="/agency/analytics">
-          Analytics
-        </a>
-        <a className="btn btn-primary">Inbox</a>
-        <a className="btn" href="/agency/settings">
-          Settings
-        </a>
+    <div className="page">
+      <h1 className="page-title">Agency Analytics</h1>
+
+      <div className="space-y-6">
+        <div className="card">
+          <h2 className="section-title mb-4">Delivered Messages</h2>
+          <LineChart
+            labels={labels}
+            series={delivered}
+            label="Delivered-like"
+          />
+        </div>
+
+        <div className="card">
+          <h2 className="section-title mb-4">Replies</h2>
+          <LineChart labels={labels} series={replies} label="Replies" />
+        </div>
+
+        <div className="card">
+          <h2 className="section-title mb-4">Reads</h2>
+          <LineChart labels={labels} series={reads} label="Reads" />
+        </div>
+
+        <div className="card">
+          <h2 className="section-title mb-4">Clicks</h2>
+          <LineChart labels={labels} series={clicks} label="Clicks" />
+        </div>
       </div>
-      <h2>All Conversations</h2>
-      <ConversationList items={data ?? []} />
     </div>
   );
 }
