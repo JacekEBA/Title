@@ -281,4 +281,70 @@
 .content {
   @apply flex-1 p-8 ml-64;
 }
+    /* Calendar Toolbar Styles - Add to globals.css */
+
+.toolbar {
+  @apply flex items-center justify-between mb-4 flex-wrap gap-4;
+}
+
+.toolbar .seg {
+  @apply flex gap-2;
+}
+
+.btn-tab {
+  @apply px-4 py-2 text-sm font-medium rounded-md
+         border border-border bg-background
+         hover:bg-muted transition-colors;
+}
+
+.btn-tab.active {
+  @apply bg-primary text-primary-foreground border-primary;
+}
+
+/* React Big Calendar Overrides */
+.rbc-calendar {
+  @apply bg-card rounded-lg border border-border p-4;
+}
+
+.rbc-header {
+  @apply py-3 font-semibold text-sm border-b border-border;
+}
+
+.rbc-today {
+  @apply bg-primary/10;
+}
+
+.rbc-event {
+  @apply bg-primary text-primary-foreground rounded px-2 py-1;
+}
+
+.rbc-event-label {
+  @apply text-xs;
+}
+
+.rbc-toolbar {
+  @apply mb-4;
+}
+
+.rbc-toolbar button {
+  @apply px-3 py-2 text-sm border border-border rounded hover:bg-muted transition-colors;
+}
+
+.rbc-toolbar button.rbc-active {
+  @apply bg-primary text-primary-foreground border-primary;
+}
+
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view {
+  @apply border border-border rounded;
+}
+
+.rbc-time-slot {
+  @apply border-t border-border;
+}
+
+.rbc-day-slot .rbc-time-slot {
+  @apply border-t border-border/50;
+}
 }
