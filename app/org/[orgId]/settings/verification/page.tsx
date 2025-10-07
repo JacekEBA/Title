@@ -1,27 +1,48 @@
-import '../../../../../styles/globals.css';
 import { redirect } from 'next/navigation';
-import { requireOrgAccess } from '../../../../../lib/auth';
-import { createSupabaseActionClient } from '../../../../../lib/supabase/server';
+import { requireOrgAccess } from '@/lib/auth';
+import { createSupabaseActionClient } from '@/lib/supabase/server';
+import OrgNav from '@/components/OrgNav';
 
-function getBaseUrl() {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+type Params = {
+  params: {
+    orgId: string;
+  };
+};
+
+function getBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
   return 'http://localhost:3000';
 }
 
-export default async function Page({ params }: { params: { orgId: string } }) {
+export default async function VerificationPage({ params }: Params) {
   await requireOrgAccess(params.orgId);
 
-  async function submit(formData: FormData) {
+  async function submitVerification(formData: FormData) {
     'use server';
+
     const supa = createSupabaseActionClient();
     const fields = Object.fromEntries(formData.entries());
-    const { data: userData } = await supa.auth.getUser();
-    const ins = await supa
+
+    // Get current user
+    const {
+      data: { user },
+    } = await supa.auth.getUser();
+
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Insert verification request
+    const { data: request, error: insertError } = await supa
       .from('rcs_brand_verification_requests')
       .insert({
         org_id: String(fields.org_id),
-        submitted_by: userData.user?.id ?? null,
+        submitted_by: user.id,
         legal_name: String(fields.legal_name || ''),
         dba: String(fields.dba || ''),
         website: String(fields.website || ''),
@@ -34,15 +55,24 @@ export default async function Page({ params }: { params: { orgId: string } }) {
       })
       .select('id')
       .single();
-    if (ins.error) throw ins.error;
 
-    const res = await fetch(`${getBaseUrl()}/api/pinnacle/brands`, {
+    if (insertError) {
+      throw new Error(insertError.message || 'Failed to create verification request');
+    }
+
+    // Call Pinnacle API
+    const response = await fetch(`${getBaseUrl()}/api/pinnacle/brands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ org_id: String(fields.org_id), request_id: ins.data.id }),
+      body: JSON.stringify({
+        org_id: String(fields.org_id),
+        request_id: request.id,
+      }),
     });
-    if (!res.ok) {
-      throw new Error(await res.text());
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to submit to Pinnacle: ${errorText}`);
     }
 
     redirect(`/org/${fields.org_id}/settings`);
@@ -50,87 +80,144 @@ export default async function Page({ params }: { params: { orgId: string } }) {
 
   return (
     <div className="container">
-      <div className="tabbar">
-        <a className="btn" href={`/org/${params.orgId}`}>
-          Dashboard
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/calendar`}>
-          Calendar
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/courses`}>
-          Courses
-        </a>
-        <a className="btn" href={`/org/${params.orgId}/inbox`}>
-          Inbox
-        </a>
-        <a className="btn btn-primary" href={`/org/${params.orgId}/settings`}>
-          Settings
-        </a>
-      </div>
-      <div className="card" style={{ maxWidth: 720 }}>
-        <h2>Verify RCS Brand</h2>
-        <form action={submit} style={{ display: 'grid', gap: 10 }}>
-          <input type="hidden" name="org_id" value={params.orgId} />
-          <div className="row">
-            <div className="col">
-              <label>
-                Legal name
-                <input className="input" name="legal_name" />
+      <OrgNav orgId={params.orgId} currentPath="settings" />
+
+      <div className="max-w-3xl">
+        <h1 className="text-2xl font-bold mb-2">Verify RCS Brand</h1>
+        <p className="text-muted-foreground mb-6">
+          Submit your business information for RCS brand verification. This
+          process typically takes 3-5 business days.
+        </p>
+
+        <div className="card">
+          <form action={submitVerification} className="space-y-6">
+            <input type="hidden" name="org_id" value={params.orgId} />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-sm font-medium mb-1 block">
+                  Legal Name <span className="text-red-500">*</span>
+                </span>
+                <input
+                  className="input"
+                  name="legal_name"
+                  required
+                  placeholder="ABC Golf Corporation"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium mb-1 block">DBA</span>
+                <input
+                  className="input"
+                  name="dba"
+                  placeholder="ABC Golf Course"
+                />
               </label>
             </div>
-            <div className="col">
-              <label>
-                DBA
-                <input className="input" name="dba" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-sm font-medium mb-1 block">
+                  Website <span className="text-red-500">*</span>
+                </span>
+                <input
+                  className="input"
+                  name="website"
+                  type="url"
+                  required
+                  placeholder="https://example.com"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium mb-1 block">
+                  EIN <span className="text-red-500">*</span>
+                </span>
+                <input
+                  className="input"
+                  name="ein"
+                  required
+                  placeholder="12-3456789"
+                />
               </label>
             </div>
-          </div>
-          <div className="row">
-            <div className="col">
-              <label>
-                Website
-                <input className="input" name="website" />
+
+            <label className="block">
+              <span className="text-sm font-medium mb-1 block">
+                Business Address <span className="text-red-500">*</span>
+              </span>
+              <textarea
+                className="input"
+                name="address"
+                required
+                rows={3}
+                placeholder="123 Main St, City, State ZIP"
+              />
+            </label>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label className="block">
+                <span className="text-sm font-medium mb-1 block">
+                  Contact Name <span className="text-red-500">*</span>
+                </span>
+                <input
+                  className="input"
+                  name="contact_name"
+                  required
+                  placeholder="John Doe"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium mb-1 block">
+                  Contact Email <span className="text-red-500">*</span>
+                </span>
+                <input
+                  className="input"
+                  name="contact_email"
+                  type="email"
+                  required
+                  placeholder="john@example.com"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium mb-1 block">
+                  Contact Phone <span className="text-red-500">*</span>
+                </span>
+                <input
+                  className="input"
+                  name="contact_phone"
+                  type="tel"
+                  required
+                  placeholder="+1234567890"
+                />
               </label>
             </div>
-            <div className="col">
-              <label>
-                EIN
-                <input className="input" name="ein" />
-              </label>
+
+            <label className="block">
+              <span className="text-sm font-medium mb-1 block">
+                Additional Notes
+              </span>
+              <textarea
+                className="input"
+                name="notes"
+                rows={4}
+                placeholder="Any additional information that might be helpful..."
+              />
+            </label>
+
+            <div className="flex justify-end gap-3">
+              <a href={`/org/${params.orgId}/settings`} className="btn">
+                Cancel
+              </a>
+              <button type="submit" className="btn btn-primary">
+                Submit for Verification
+              </button>
             </div>
-          </div>
-          <label>
-            Address
-            <textarea className="input" name="address" />
-          </label>
-          <div className="row">
-            <div className="col">
-              <label>
-                Contact name
-                <input className="input" name="contact_name" />
-              </label>
-            </div>
-            <div className="col">
-              <label>
-                Contact email
-                <input className="input" type="email" name="contact_email" />
-              </label>
-            </div>
-            <div className="col">
-              <label>
-                Contact phone
-                <input className="input" name="contact_phone" />
-              </label>
-            </div>
-          </div>
-          <label>
-            Notes
-            <textarea className="input" name="notes" />
-          </label>
-          <button className="btn btn-primary" type="submit">
-            Submit for verification
-          </button>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
