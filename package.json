@@ -9,8 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.44.3",
+    "@supabase/supabase-js": "^2.50.5",
+    "@supabase/ssr": "^0.x.x",
     "chart.js": "^4.4.3",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -35,3 +35,4 @@
     "vitest": "^1.6.0"
   }
 }
+
