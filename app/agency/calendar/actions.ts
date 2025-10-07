@@ -54,7 +54,6 @@ export async function createPromoAction(input: CreatePromoInput) {
       timezone: input.timezone,
     };
 
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .insert(campaignData)
@@ -80,7 +79,6 @@ export async function createPromoAction(input: CreatePromoInput) {
       end_time: input.scheduled_at,
     };
 
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: eventError } = await supabase
       .from('calendar_events')
       .insert(eventData);
@@ -100,7 +98,6 @@ export async function createPromoAction(input: CreatePromoInput) {
       run_at: input.scheduled_at,
     };
 
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: jobError } = await supabase.from('send_jobs').insert(jobData);
 
     if (jobError) {
@@ -141,7 +138,6 @@ export async function updateEventAction(input: UpdateEventInput) {
 
   try {
     // Update campaign with all fields
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: campaignError } = await supabase
       .from('campaigns')
       .update({
@@ -160,7 +156,6 @@ export async function updateEventAction(input: UpdateEventInput) {
     }
 
     // Update calendar event
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: eventError } = await supabase
       .from('calendar_events')
       .update({
@@ -178,7 +173,6 @@ export async function updateEventAction(input: UpdateEventInput) {
     }
 
     // Update send job run_at
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: jobError } = await supabase
       .from('send_jobs')
       .update({ run_at: input.scheduledAt })
@@ -213,7 +207,6 @@ export async function cancelEventAction(eventId: string) {
     }
 
     // Update campaign status to cancelled
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: campaignError } = await supabase
       .from('campaigns')
       .update({ status: 'cancelled' })
@@ -224,7 +217,6 @@ export async function cancelEventAction(eventId: string) {
     }
 
     // Update calendar event status
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: eventError } = await supabase
       .from('calendar_events')
       .update({ event_status: 'cancelled' })
@@ -235,7 +227,6 @@ export async function cancelEventAction(eventId: string) {
     }
 
     // Cancel send job
-    // @ts-expect-error - Supabase type definitions are not properly generated
     const { error: jobError } = await supabase
       .from('send_jobs')
       .update({ status: 'failed', last_error: 'Cancelled by user' })
