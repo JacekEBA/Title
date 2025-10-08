@@ -1,12 +1,18 @@
 import type { Metadata } from 'next';
+import { getCurrentProfile } from '@/lib/auth';
+
 import { signOutAction } from './actions';
+import InviteOwnerForm from './InviteOwnerForm';
 import SignOutButton from './SignOutButton';
 
 export const metadata: Metadata = {
   title: 'Settings',
 };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const profile = await getCurrentProfile();
+  const isOwner = profile?.role === 'owner';
+
   return (
     <div className="max-w-4xl mx-auto p-8">
       <div className="mb-8">
@@ -15,6 +21,21 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-6">
+        {isOwner ? (
+          <div className="bg-card rounded-lg border border-border overflow-hidden">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-semibold">Invite Additional Owners</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Send an email invitation to add another owner to your agency. Invited users
+                will create a password and sign in through the normal login page.
+              </p>
+            </div>
+            <div className="p-6">
+              <InviteOwnerForm />
+            </div>
+          </div>
+        ) : null}
+
         {/* Account Section */}
         <div className="bg-card rounded-lg border border-border overflow-hidden">
           <div className="p-6 border-b border-border">

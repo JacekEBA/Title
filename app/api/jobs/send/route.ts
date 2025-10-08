@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import {
+  createSupabaseAdminClient,
+  getSupabaseServiceRoleKey,
+} from '@/lib/supabase/server';
 import { sendRcsMessage } from '@/lib/pinnacle';
 
 export const runtime = 'nodejs';
@@ -26,12 +29,14 @@ type Contact = {
 };
 
 export async function GET() {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const serviceRoleKey = getSupabaseServiceRoleKey();
+
+  if (!serviceRoleKey) {
     console.warn('SUPABASE_SERVICE_ROLE_KEY is not configured. Skipping job run.');
     return NextResponse.json({ ok: false, reason: 'service role key missing' });
   }
 
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient(serviceRoleKey);
   const nowIso = new Date().toISOString();
 
   try {
