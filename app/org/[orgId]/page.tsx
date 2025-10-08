@@ -1,7 +1,5 @@
 import Link from 'next/link';
-import { requireOrgAccess } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import OrgNav from '@/components/OrgNav';
 
 type Params = {
   params: {
@@ -15,10 +13,13 @@ type MetricRow = {
   replies: number | null;
 };
 
+function formatNumber(n: number): string {
+  return n.toLocaleString();
+}
+
 export default async function OrgDashboardPage({ params }: Params) {
-  await requireOrgAccess(params.orgId);
-  
   const supabase = createSupabaseServerClient();
+  
   const { data: metrics } = await supabase
     .from('org_daily_metrics')
     .select('date, delivered_like, replies')
@@ -36,24 +37,18 @@ export default async function OrgDashboardPage({ params }: Params) {
   );
 
   return (
-    <div className="container">
-      <OrgNav orgId={params.orgId} currentPath="dashboard" />
+    <div className="page">
+      <h1 className="page-title">Dashboard overview</h1>
 
-      <h1 className="text-2xl font-bold mb-6">Organization Dashboard</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="card">
-          <h2 className="text-sm font-medium text-muted-foreground mb-2">
-            Total Delivered
-          </h2>
-          <div className="text-3xl font-bold">{totals.delivered.toLocaleString()}</div>
+      <div className="kpis">
+        <div className="kpi-card">
+          <div className="kpi-label">Total Delivered</div>
+          <div className="kpi-value">{formatNumber(totals.delivered)}</div>
         </div>
         
-        <div className="card">
-          <h2 className="text-sm font-medium text-muted-foreground mb-2">
-            Total Replies
-          </h2>
-          <div className="text-3xl font-bold">{totals.replies.toLocaleString()}</div>
+        <div className="kpi-card">
+          <div className="kpi-label">Total Replies</div>
+          <div className="kpi-value">{formatNumber(totals.replies)}</div>
         </div>
       </div>
 
@@ -72,6 +67,13 @@ export default async function OrgDashboardPage({ params }: Params) {
           >
             View Inbox
           </Link>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">Recent Activity</h2>
+        <div className="text-center py-12 text-gray-500">
+          Chart visualization coming soon
         </div>
       </div>
     </div>
