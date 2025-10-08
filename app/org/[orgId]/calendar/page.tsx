@@ -72,3 +72,5 @@ export default async function OrgCalendarPage({ params }: Params) {
 
   return <OrgCalendarView events={enrichedEvents} />;
 }
+
+// Save this as: app/org/[orgId]/calendar/page.tsx (REPLACE the existing one)
