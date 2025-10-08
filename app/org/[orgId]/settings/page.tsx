@@ -1,6 +1,4 @@
 import Link from 'next/link';
-import { requireOrgAccess } from '@/lib/auth';
-import OrgNav from '@/components/OrgNav';
 
 type Params = {
   params: {
@@ -9,13 +7,9 @@ type Params = {
 };
 
 export default async function OrgSettingsPage({ params }: Params) {
-  await requireOrgAccess(params.orgId);
-
   return (
-    <div className="container">
-      <OrgNav orgId={params.orgId} currentPath="settings" />
-
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+    <div className="page">
+      <h1 className="page-title">Settings</h1>
 
       <div className="space-y-6">
         <div className="card">
