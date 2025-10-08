@@ -3,11 +3,11 @@
 import { useEffect, useRef } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 
+import { inviteOwnerAction } from './actions';
 import {
-  inviteOwnerAction,
   inviteOwnerInitialState,
   type InviteOwnerActionState,
-} from './actions';
+} from './inviteOwnerState';
 
 function SubmitButton() {
   const { pending } = useFormStatus();

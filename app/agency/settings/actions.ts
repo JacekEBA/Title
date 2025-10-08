@@ -1,4 +1,4 @@
-'use server';
+"use server";
 
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -8,21 +8,13 @@ import {
   createSupabaseAdminClient,
 } from '@/lib/supabase/server';
 
+import type { InviteOwnerActionState } from './inviteOwnerState';
+
 export async function signOutAction() {
   const supabase = createSupabaseActionClient();
   await supabase.auth.signOut();
   redirect('/login');
 }
-
-export type InviteOwnerActionState = {
-  status: 'idle' | 'success' | 'error';
-  message: string | null;
-};
-
-export const inviteOwnerInitialState: InviteOwnerActionState = {
-  status: 'idle',
-  message: null,
-};
 
 const inviteOwnerSchema = z.object({
   email: z
@@ -36,6 +28,8 @@ export async function inviteOwnerAction(
   _prevState: InviteOwnerActionState,
   formData: FormData
 ): Promise<InviteOwnerActionState> {
+  'use server';
+
   const parsed = inviteOwnerSchema.safeParse({
     email: formData.get('email'),
   });
