@@ -7,15 +7,15 @@ type Params = {
   };
 };
 
-export default async function OrgCalendarPage({ params }: Params) {
+export default async function OrgCoursesPage({ params }: Params) {
   return (
     <div className="page">
-      <h1 className="page-title">Calendar</h1>
+      <h1 className="page-title">Courses</h1>
 
       <div className="card">
         <p className="text-muted-foreground text-center py-12">
-          Calendar view coming soon. You can schedule campaigns from the Agency
-          Calendar for now.
+          Course management coming soon. Contact your agency administrator to
+          manage courses.
         </p>
       </div>
     </div>
