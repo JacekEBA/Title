@@ -1,10 +1,8 @@
-import { requireOrgAccess } from '@/lib/auth';
 import { sendRcsMessage } from '@/lib/pinnacle';
 import {
   createSupabaseServerClient,
   createSupabaseActionClient,
 } from '@/lib/supabase/server';
-import OrgNav from '@/components/OrgNav';
 import ChatThread from '@/components/ChatThread';
 import MessageComposer from '@/components/MessageComposer';
 
@@ -23,8 +21,6 @@ type Message = {
 };
 
 export default async function ConversationPage({ params }: Params) {
-  await requireOrgAccess(params.orgId);
-
   const supabase = createSupabaseServerClient();
   const conversationId = params.conversationId;
 
@@ -113,10 +109,8 @@ export default async function ConversationPage({ params }: Params) {
   }
 
   return (
-    <div className="container">
-      <OrgNav orgId={params.orgId} currentPath="inbox" />
-
-      <h1 className="text-2xl font-bold mb-6">Conversation</h1>
+    <div className="page">
+      <h1 className="page-title">Conversation</h1>
 
       <div className="space-y-4">
         <div className="card">
