@@ -3,7 +3,11 @@ import {
   createSupabaseAdminClient,
   getSupabaseServiceRoleKey,
 } from '@/lib/supabase/server';
-import { sendRcsMessage } from '@/lib/pinnacle';
+import { 
+  sendRcsMessage, 
+  sendSmsMessage, 
+  batchCheckRcsCapability 
+} from '@/lib/pinnacle';
 
 export const runtime = 'nodejs';
 
@@ -32,15 +36,18 @@ export async function GET() {
   const serviceRoleKey = getSupabaseServiceRoleKey();
 
   if (!serviceRoleKey) {
-    console.warn('SUPABASE_SERVICE_ROLE_KEY is not configured. Skipping job run.');
-    return NextResponse.json({ ok: false, reason: 'service role key missing' });
+    console.warn('SUPABASE_SERVICE_ROLE_KEY is not configured.');
+    return NextResponse.json({ 
+      ok: false, 
+      reason: 'service role key missing' 
+    });
   }
 
   const admin = createSupabaseAdminClient(serviceRoleKey);
   const nowIso = new Date().toISOString();
 
   try {
-    // Claim pending jobs
+    // Claim pending jobs that are ready to run
     const { data: jobs, error: claimError } = await admin
       .from('send_jobs')
       .update({
@@ -91,6 +98,8 @@ export async function GET() {
 }
 
 async function processSendJob(admin: any, job: SendJob): Promise<void> {
+  console.log(`Processing job ${job.id}...`);
+
   // Get campaign details
   const { data: campaign, error: campaignError } = await admin
     .from('campaigns')
@@ -109,7 +118,7 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
   // Get template
   const { data: template, error: templateError } = await admin
     .from('rcs_templates')
-    .select('code')
+    .select('code, fallback_sms_enabled, fallback_text')
     .eq('id', typedCampaign.template_id)
     .single();
 
@@ -117,29 +126,154 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
     throw templateError;
   }
 
-  const payload = template?.code ?? { text: typedCampaign.name };
+  const rcsPayload = template?.code ?? {};
+  const hasFallback = template?.fallback_sms_enabled ?? false;
+  const fallbackText = template?.fallback_text ?? '';
 
-  // Get contacts
-  const contacts = await getContacts(admin, typedCampaign);
+  // Get contacts based on audience
+  let contacts: Contact[] = [];
+  
+  if (typedCampaign.audience_kind === 'all_contacts') {
+    // All contacts for this course
+    const { data, error } = await admin
+      .from('contacts')
+      .select('id, phone')
+      .eq('course_id', typedCampaign.course_id)
+      .eq('consent', 'opted_in')
+      .is('opted_out_at', null)
+      .is('deleted_at', null);
+    
+    if (error) throw error;
+    contacts = data ?? [];
+  } else if (typedCampaign.audience_kind === 'contact_list') {
+    // Specific contact list
+    const { data, error } = await admin
+      .from('contact_list_members')
+      .select('contact_id, contacts(id, phone, consent, opted_out_at, deleted_at)')
+      .eq('list_id', typedCampaign.audience_ref);
+    
+    if (error) throw error;
+    contacts = (data ?? [])
+      .filter((m: any) => 
+        m.contacts?.consent === 'opted_in' &&
+        !m.contacts?.opted_out_at &&
+        !m.contacts?.deleted_at
+      )
+      .map((m: any) => ({
+        id: m.contacts.id,
+        phone: m.contacts.phone,
+      }));
+  }
 
-  // Send to each contact
+  if (contacts.length === 0) {
+    console.log(`No contacts found for campaign ${typedCampaign.id}`);
+    await admin
+      .from('send_jobs')
+      .update({ 
+        status: 'completed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id);
+    return;
+  }
+
+  console.log(`Found ${contacts.length} contacts to message`);
+
+  // STEP 1: Check RCS capability for all contacts
+  const phoneNumbers = contacts.map(c => c.phone);
+  const rcsCapabilities = await batchCheckRcsCapability(phoneNumbers);
+
+  console.log(
+    `RCS capable: ${Array.from(rcsCapabilities.values()).filter(Boolean).length}/${contacts.length}`
+  );
+
+  // STEP 2: Send messages (RCS where supported, SMS fallback where configured)
+  let successCount = 0;
+  let failureCount = 0;
+
   for (const contact of contacts) {
     try {
-      await sendToContact(admin, typedCampaign, contact, payload);
+      const isRcsCapable = rcsCapabilities.get(contact.phone) ?? false;
+      
+      let providerMessageId: string | null = null;
+      let usedFallback = false;
+
+      if (isRcsCapable) {
+        // Send RCS message
+        try {
+          const result = await sendRcsMessage({
+            orgId: typedCampaign.org_id,
+            toPhoneE164: contact.phone,
+            payload: rcsPayload,
+          });
+          providerMessageId = result.messageId?.toString() ?? null;
+        } catch (rcsError) {
+          console.error(`RCS send failed for ${contact.phone}:`, rcsError);
+          
+          // If RCS fails and fallback is enabled, send SMS
+          if (hasFallback && fallbackText) {
+            const smsResult = await sendSmsMessage({
+              orgId: typedCampaign.org_id,
+              toPhoneE164: contact.phone,
+              text: fallbackText,
+            });
+            providerMessageId = smsResult.messageId?.toString() ?? null;
+            usedFallback = true;
+          } else {
+            throw rcsError; // Re-throw if no fallback
+          }
+        }
+      } else if (hasFallback && fallbackText) {
+        // Not RCS capable, send SMS fallback
+        const smsResult = await sendSmsMessage({
+          orgId: typedCampaign.org_id,
+          toPhoneE164: contact.phone,
+          text: fallbackText,
+        });
+        providerMessageId = smsResult.messageId?.toString() ?? null;
+        usedFallback = true;
+      } else {
+        // Skip: not RCS capable and no fallback configured
+        console.log(`Skipping ${contact.phone}: not RCS capable, no fallback`);
+        continue;
+      }
+
+      // Record successful send
+      await admin.from('message_sends').insert({
+        org_id: typedCampaign.org_id,
+        course_id: typedCampaign.course_id,
+        campaign_id: typedCampaign.id,
+        contact_id: contact.id,
+        provider_message_id: providerMessageId,
+        status: 'sent',
+        fallback_used: usedFallback,
+        send_attempted_at: new Date().toISOString(),
+        sent_at: new Date().toISOString(),
+      });
+
+      successCount++;
+
     } catch (error) {
-      console.error(
-        `Failed to send to contact ${contact.id}:`,
-        error
-      );
-      // Continue with other contacts even if one fails
+      console.error(`Failed to send to ${contact.phone}:`, error);
+      
+      // Record failed send
+      await admin.from('message_sends').insert({
+        org_id: typedCampaign.org_id,
+        course_id: typedCampaign.course_id,
+        campaign_id: typedCampaign.id,
+        contact_id: contact.id,
+        status: 'failed',
+        failure_reason: error instanceof Error ? error.message : 'Unknown error',
+        send_attempted_at: new Date().toISOString(),
+      });
+
+      failureCount++;
     }
   }
 
-  // Mark job as completed
-  await admin
-    .from('send_jobs')
-    .update({ status: 'completed' })
-    .eq('id', job.id);
+  console.log(
+    `Job ${job.id} complete: ${successCount} sent, ${failureCount} failed`
+  );
 
   // Mark campaign as completed
   await admin
@@ -149,135 +283,46 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
       send_completed_at: new Date().toISOString(),
     })
     .eq('id', typedCampaign.id);
-}
 
-async function getContacts(
-  admin: any,
-  campaign: Campaign
-): Promise<Contact[]> {
-  if (campaign.audience_kind === 'contact_list' && campaign.audience_ref) {
-    // Get contacts from specific list
-    const { data: members, error } = await admin
-      .from('contact_list_members')
-      .select('contacts:contact_id(id, phone)')
-      .eq('list_id', campaign.audience_ref);
-
-    if (error) throw error;
-
-    return (members ?? [])
-      .map((row: any) => row.contacts)
-      .filter((c: any): c is Contact => Boolean(c?.id && c?.phone));
-  } else {
-    // Get all contacts for the organization
-    const { data: contacts, error } = await admin
-      .from('contacts')
-      .select('id, phone')
-      .eq('org_id', campaign.org_id)
-      .is('opted_out_at', null);
-
-    if (error) throw error;
-
-    return (contacts as Contact[]) ?? [];
-  }
-}
-
-async function sendToContact(
-  admin: any,
-  campaign: Campaign,
-  contact: Contact,
-  payload: any
-): Promise<void> {
-  if (!contact.phone) return;
-
-  // Find or create conversation
-  const { data: existingConv } = await admin
-    .from('conversations')
-    .select('id')
-    .eq('org_id', campaign.org_id)
-    .eq('contact_id', contact.id)
-    .maybeSingle();
-
-  let conversationId = existingConv?.id ?? null;
-
-  if (!conversationId) {
-    const { data: newConv, error: convError } = await admin
-      .from('conversations')
-      .insert({
-        org_id: campaign.org_id,
-        course_id: campaign.course_id,
-        contact_id: contact.id,
-        last_message_at: new Date().toISOString(),
-        last_direction: 'outbound',
-      })
-      .select('id')
-      .single();
-
-    if (convError) throw convError;
-    conversationId = newConv.id;
-  }
-
-  // Send RCS message
-  const response = await sendRcsMessage({
-    orgId: campaign.org_id,
-    toPhoneE164: contact.phone,
-    payload,
-  });
-
-  // Extract body text
-  const bodyText =
-    typeof payload?.text === 'string' ? payload.text : campaign.name;
-
-  // Store message
-  await admin.from('messages').insert({
-    conversation_id: conversationId,
-    org_id: campaign.org_id,
-    course_id: campaign.course_id,
-    contact_id: contact.id,
-    direction: 'outbound',
-    kind: 'text',
-    body: bodyText,
-    provider_message_id: response?.message_id ?? null,
-    sent_at: new Date().toISOString(),
-  });
-
-  // Update conversation
+  // Mark job as completed
   await admin
-    .from('conversations')
-    .update({
-      last_message_at: new Date().toISOString(),
-      last_direction: 'outbound',
-      unread_count: 0,
+    .from('send_jobs')
+    .update({ 
+      status: 'completed',
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', conversationId);
-
-  // Record message send
-  await admin.from('message_sends').insert({
-    org_id: campaign.org_id,
-    course_id: campaign.course_id,
-    campaign_id: campaign.id,
-    contact_id: contact.id,
-    provider_message_id: response?.message_id ?? null,
-    status: 'sent',
-    sent_at: new Date().toISOString(),
-    conversation_id: conversationId,
-  });
+    .eq('id', job.id);
 }
 
 async function handleJobError(
-  admin: any,
-  job: SendJob,
+  admin: any, 
+  job: SendJob, 
   error: unknown
 ): Promise<void> {
-  const errorMessage =
-    error instanceof Error ? error.message : String(error);
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  const maxAttempts = 3;
 
-  await admin
-    .from('send_jobs')
-    .update({
-      status: 'retrying',
-      attempts: (job.attempts ?? 0) + 1,
-      last_error: errorMessage,
-      locked_at: null,
-    })
-    .eq('id', job.id);
+  if (job.attempts < maxAttempts) {
+    // Retry later
+    await admin
+      .from('send_jobs')
+      .update({
+        status: 'pending',
+        attempts: job.attempts + 1,
+        last_error: errorMessage,
+        locked_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id);
+  } else {
+    // Mark as failed after max attempts
+    await admin
+      .from('send_jobs')
+      .update({
+        status: 'failed',
+        last_error: errorMessage,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id);
+  }
 }
