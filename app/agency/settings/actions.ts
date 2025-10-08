@@ -77,7 +77,27 @@ export async function inviteOwnerAction(
     };
   }
 
-  const adminClient = createSupabaseAdminClient();
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error(
+      'Owner invite attempted without SUPABASE_SERVICE_ROLE_KEY configured.'
+    );
+    return {
+      status: 'error',
+      message:
+        'Invites are not configured yet. Please contact support to finish setup.',
+    };
+  }
+
+  let adminClient: ReturnType<typeof createSupabaseAdminClient>;
+  try {
+    adminClient = createSupabaseAdminClient();
+  } catch (error) {
+    console.error('Unable to create Supabase admin client for owner invite', error);
+    return {
+      status: 'error',
+      message: 'Failed to send invite. Please try again later.',
+    };
+  }
 
   const existingUser = await adminClient.auth.admin.getUserByEmail(email);
 
@@ -150,9 +170,7 @@ export async function inviteOwnerAction(
     }
   }
 
-  if ('email' in profileRecord) {
-    profileInsert.email = email;
-  }
+  profileInsert.email = email;
 
   const { error: insertError } = await adminClient
     .from('profiles')
