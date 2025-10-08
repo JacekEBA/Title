@@ -11,7 +11,7 @@ interface OrgSidebarProps {
   isOwner?: boolean;
 }
 
-export default function OrgSidebar({ orgId, orgName }: OrgSidebarProps) {
+export default function OrgSidebar({ orgId, orgName, isOwner = false }: OrgSidebarProps) {
   const pathname = usePathname();
 
   const navigation = [
@@ -94,6 +94,23 @@ export default function OrgSidebar({ orgId, orgName }: OrgSidebarProps) {
             </Link>
           );
         })}
+
+        {/* Back to Agency - Only for Owners */}
+        {/* TEMPORARY: Changed true to always show for testing */}
+        {true && (
+          <>
+            <div className="border-t border-border my-2"></div>
+            <Link
+              href="/agency"
+              className="sidebar-link"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to Agency</span>
+            </Link>
+          </>
+        )}
       </nav>
 
       {/* Footer */}
