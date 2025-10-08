@@ -1,3 +1,6 @@
+import { requireOrgAccess } from '@/lib/auth';
+import OrgNav from '@/components/OrgNav';
+
 type Params = {
   params: {
     orgId: string;
