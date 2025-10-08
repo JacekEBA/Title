@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireOrgAccess } from '@/lib/auth';
+import { requireOrgAccess, getCurrentProfile } from '@/lib/auth';
 import OrgSidebar from '@/components/OrgSidebar';
 
 type Props = {
