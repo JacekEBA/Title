@@ -1,7 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireOrgAccess } from '@/lib/auth';
 import { createSupabaseActionClient } from '@/lib/supabase/server';
-import OrgNav from '@/components/OrgNav';
 
 type Params = {
   params: {
@@ -20,8 +18,6 @@ function getBaseUrl(): string {
 }
 
 export default async function VerificationPage({ params }: Params) {
-  await requireOrgAccess(params.orgId);
-
   async function submitVerification(formData: FormData) {
     'use server';
 
@@ -79,11 +75,9 @@ export default async function VerificationPage({ params }: Params) {
   }
 
   return (
-    <div className="container">
-      <OrgNav orgId={params.orgId} currentPath="settings" />
-
+    <div className="page">
       <div className="max-w-3xl">
-        <h1 className="text-2xl font-bold mb-2">Verify RCS Brand</h1>
+        <h1 className="page-title">Verify RCS Brand</h1>
         <p className="text-muted-foreground mb-6">
           Submit your business information for RCS brand verification. This
           process typically takes 3-5 business days.
