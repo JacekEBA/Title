@@ -13,6 +13,10 @@ type Props = {
 export default async function OrgLayout({ children, params }: Props) {
   await requireOrgAccess(params.orgId);
   
+  // Get current user profile to check if owner
+  const profile = await getCurrentProfile();
+  const isOwner = profile?.role === 'owner';
+  
   // Fetch organization name
   const supabase = createSupabaseServerClient();
   const { data: org } = await supabase
@@ -25,7 +29,7 @@ export default async function OrgLayout({ children, params }: Props) {
 
   return (
     <div className="shell">
-      <OrgSidebar orgId={params.orgId} orgName={orgName} />
+      <OrgSidebar orgId={params.orgId} orgName={orgName} isOwner={isOwner} />
       <main className="content">{children}</main>
     </div>
   );
