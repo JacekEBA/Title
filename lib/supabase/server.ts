@@ -50,14 +50,42 @@ export function createSupabaseActionClient() {
   ) as any;
 }
 
+const SERVICE_ROLE_ENV_KEYS = [
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'SUPABASE_SERVICE_ROLE',
+  'SUPABASE_SERVICE_KEY',
+  'SUPABASE_SERVICE_ROLE_SECRET',
+] as const;
+
+function normalizeEnvValue(value: string | undefined | null) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export function getSupabaseServiceRoleKey(): string | null {
+  for (const key of SERVICE_ROLE_ENV_KEYS) {
+    const candidate = normalizeEnvValue(process.env[key]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Admin client for cron/webhooks (service role; bypasses RLS by design).
  */
-export function createSupabaseAdminClient() {
+export function createSupabaseAdminClient(serviceRoleKey?: string) {
+  const resolvedKey = normalizeEnvValue(serviceRoleKey ?? getSupabaseServiceRoleKey());
+
+  if (!resolvedKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+  }
+
   const { createClient } = require('@supabase/supabase-js');
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    resolvedKey,
     { auth: { persistSession: false, autoRefreshToken: false } } as any
   ) as any;
 }

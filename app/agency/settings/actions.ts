@@ -6,6 +6,7 @@ import { z } from 'zod';
 import {
   createSupabaseActionClient,
   createSupabaseAdminClient,
+  getSupabaseServiceRoleKey,
 } from '@/lib/supabase/server';
 
 import type { InviteOwnerActionState } from './inviteOwnerState';
@@ -77,7 +78,9 @@ export async function inviteOwnerAction(
     };
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const serviceRoleKey = getSupabaseServiceRoleKey();
+
+  if (!serviceRoleKey) {
     console.error(
       'Owner invite attempted without SUPABASE_SERVICE_ROLE_KEY configured.'
     );
@@ -90,7 +93,7 @@ export async function inviteOwnerAction(
 
   let adminClient: ReturnType<typeof createSupabaseAdminClient>;
   try {
-    adminClient = createSupabaseAdminClient();
+    adminClient = createSupabaseAdminClient(serviceRoleKey);
   } catch (error) {
     console.error('Unable to create Supabase admin client for owner invite', error);
     return {
