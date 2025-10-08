@@ -7,6 +7,7 @@ import {
   createSupabaseActionClient,
   createSupabaseAdminClient,
   getSupabaseServiceRoleKey,
+  getSupabaseUrl,
 } from '@/lib/supabase/server';
 
 import type { InviteOwnerActionState } from './inviteOwnerState';
@@ -79,6 +80,14 @@ export async function inviteOwnerAction(
   }
 
   const serviceRoleKey = getSupabaseServiceRoleKey();
+  const supabaseUrl = getSupabaseUrl();
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug('Supabase admin env availability', {
+      hasServiceRoleKey: Boolean(serviceRoleKey),
+      hasSupabaseUrl: Boolean(supabaseUrl),
+    });
+  }
 
   if (!serviceRoleKey) {
     console.error(
@@ -91,9 +100,18 @@ export async function inviteOwnerAction(
     };
   }
 
+  if (!supabaseUrl) {
+    console.error('Owner invite attempted without NEXT_PUBLIC_SUPABASE_URL configured.');
+    return {
+      status: 'error',
+      message:
+        'Invites are not configured yet. Please contact support to finish setup.',
+    };
+  }
+
   let adminClient: ReturnType<typeof createSupabaseAdminClient>;
   try {
-    adminClient = createSupabaseAdminClient(serviceRoleKey);
+    adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl);
   } catch (error) {
     console.error('Unable to create Supabase admin client for owner invite', error);
     return {
@@ -105,14 +123,11 @@ export async function inviteOwnerAction(
   const existingUser = await adminClient.auth.admin.getUserByEmail(email);
 
   if (existingUser.error) {
-    console.error('Failed to check for existing user', existingUser.error);
-    return {
-      status: 'error',
-      message: 'Failed to send invite. Please try again.',
-    };
-  }
-
-  if (existingUser.data?.user) {
+    console.error('Failed to check for existing user before sending owner invite', {
+      email,
+      error: existingUser.error,
+    });
+  } else if (existingUser.data?.user) {
     return {
       status: 'error',
       message: 'That user is already registered.',
@@ -140,9 +155,12 @@ export async function inviteOwnerAction(
 
   if (inviteResult.error) {
     console.error('Failed to send owner invite', inviteResult.error);
+    const failureMessage = existingUser.error
+      ? 'Unable to reach Supabase Admin API. Check your Service Role Key configuration.'
+      : 'Failed to send invite. Please try again.';
     return {
       status: 'error',
-      message: 'Failed to send invite. Please try again.',
+      message: failureMessage,
     };
   }
 
