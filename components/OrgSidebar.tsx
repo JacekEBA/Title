@@ -96,8 +96,7 @@ export default function OrgSidebar({ orgId, orgName, isOwner = false }: OrgSideb
         })}
 
         {/* Back to Agency - Only for Owners */}
-        {/* TEMPORARY: Changed true to always show for testing */}
-        {true && (
+        {isOwner && (
           <>
             <div className="border-t border-border my-2"></div>
             <Link
