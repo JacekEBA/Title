@@ -77,18 +77,6 @@ export async function inviteOwnerAction(
     };
   }
 
-  const agencyId =
-    (profileRecord.agency_id as string | null | undefined) ??
-    (profileRecord.org_id as string | null | undefined) ??
-    null;
-
-  if (!agencyId) {
-    return {
-      status: 'error',
-      message: 'You must belong to an agency before inviting new owners.',
-    };
-  }
-
   const adminClient = createSupabaseAdminClient();
 
   const existingUser = await adminClient.auth.admin.getUserByEmail(email);
@@ -149,10 +137,17 @@ export async function inviteOwnerAction(
     role: 'owner',
   };
 
-  if ('agency_id' in profileRecord) {
-    profileInsert.agency_id = agencyId;
-  } else {
-    profileInsert.org_id = agencyId;
+  const agencyId =
+    (profileRecord.agency_id as string | null | undefined) ??
+    (profileRecord.org_id as string | null | undefined) ??
+    null;
+
+  if (agencyId) {
+    if ('agency_id' in profileRecord) {
+      profileInsert.agency_id = agencyId;
+    } else {
+      profileInsert.org_id = agencyId;
+    }
   }
 
   if ('email' in profileRecord) {
