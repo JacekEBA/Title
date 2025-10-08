@@ -1,6 +1,4 @@
-import { requireOrgAccess } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import OrgNav from '@/components/OrgNav';
 import ConversationList from '@/components/ConversationList';
 
 type Params = {
@@ -17,8 +15,6 @@ type Conversation = {
 };
 
 export default async function OrgInboxPage({ params }: Params) {
-  await requireOrgAccess(params.orgId);
-  
   const supabase = createSupabaseServerClient();
   const { data } = await supabase
     .from('conversations')
@@ -30,10 +26,8 @@ export default async function OrgInboxPage({ params }: Params) {
   const conversations = (data as Conversation[]) ?? [];
 
   return (
-    <div className="container">
-      <OrgNav orgId={params.orgId} currentPath="inbox" />
-
-      <h1 className="text-2xl font-bold mb-6">Conversations</h1>
+    <div className="page">
+      <h1 className="page-title">Conversations</h1>
 
       <div className="card">
         {conversations.length === 0 ? (
