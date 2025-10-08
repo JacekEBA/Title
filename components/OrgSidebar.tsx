@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 interface OrgSidebarProps {
   orgId: string;
   orgName?: string;
+  isOwner?: boolean;
 }
 
 export default function OrgSidebar({ orgId, orgName }: OrgSidebarProps) {
