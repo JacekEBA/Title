@@ -1,6 +1,3 @@
-import { requireOrgAccess } from '@/lib/auth';
-import OrgNav from '@/components/OrgNav';
-
 type Params = {
   params: {
     orgId: string;
@@ -8,13 +5,9 @@ type Params = {
 };
 
 export default async function OrgCalendarPage({ params }: Params) {
-  await requireOrgAccess(params.orgId);
-
   return (
-    <div className="container">
-      <OrgNav orgId={params.orgId} currentPath="calendar" />
-
-      <h1 className="text-2xl font-bold mb-6">Calendar</h1>
+    <div className="page">
+      <h1 className="page-title">Calendar</h1>
 
       <div className="card">
         <p className="text-muted-foreground text-center py-12">
