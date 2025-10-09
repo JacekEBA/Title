@@ -178,20 +178,14 @@ export async function inviteOwnerAction(
     role: 'owner',
   };
 
-  const agencyId =
-    (profileRecord.agency_id as string | null | undefined) ??
-    (profileRecord.org_id as string | null | undefined) ??
-    null;
+  const orgId = profileRecord.org_id as string | null | undefined;
 
-  if (agencyId) {
-    if ('agency_id' in profileRecord) {
-      profileInsert.agency_id = agencyId;
-    } else {
-      profileInsert.org_id = agencyId;
-    }
+  if (orgId) {
+    profileInsert.org_id = orgId;
   }
 
-  profileInsert.email = email;
+  // FIXED: Removed profileInsert.email = email;
+  // The 'email' column does not exist in the profiles table
 
   const { error: insertError } = await adminClient
     .from('profiles')
@@ -211,4 +205,3 @@ export async function inviteOwnerAction(
     message: 'Invite sent!',
   };
 }
-
