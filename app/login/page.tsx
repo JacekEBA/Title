@@ -8,11 +8,20 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if URL contains password reset token
+    // Check if URL contains password reset/invite token
     const hash = window.location.hash;
-    if (hash.includes('access_token') && hash.includes('type=recovery')) {
-      // This is a password reset/invite link - redirect to reset password page
-      router.replace('/reset-password');
+    
+    // Parse the hash parameters
+    const params = new URLSearchParams(hash.substring(1));
+    const accessToken = params.get('access_token');
+    const type = params.get('type');
+    
+    // If there's an access token in the URL, this is either:
+    // - A password reset link (type=recovery)
+    // - An invite link (type=invite or type=magiclink)
+    if (accessToken) {
+      // Redirect to reset password page with the full hash
+      router.replace('/reset-password' + hash);
     }
   }, [router]);
 
