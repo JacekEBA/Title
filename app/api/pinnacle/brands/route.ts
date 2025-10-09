@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const admin = createSupabaseAdminClient();
+    const admin = createSupabaseAdminClient() as any;
 
     // Get verification request
     const { data: requestRow, error: requestError } = await admin
