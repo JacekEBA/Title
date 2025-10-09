@@ -82,21 +82,11 @@ export async function inviteOwnerAction(
   const serviceRoleKey = getSupabaseServiceRoleKey();
   const supabaseUrl = getSupabaseUrl();
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.debug('Supabase admin env availability', {
-      hasServiceRoleKey: Boolean(serviceRoleKey),
-      hasSupabaseUrl: Boolean(supabaseUrl),
-    });
-  }
-
   if (!serviceRoleKey) {
-    console.error(
-      'Owner invite attempted without SUPABASE_SERVICE_ROLE_KEY configured.'
-    );
+    console.error('Owner invite attempted without SUPABASE_SERVICE_ROLE_KEY configured.');
     return {
       status: 'error',
-      message:
-        'Invites are not configured yet. Please contact support to finish setup.',
+      message: 'Invites are not configured yet. Please contact support to finish setup.',
     };
   }
 
@@ -104,8 +94,7 @@ export async function inviteOwnerAction(
     console.error('Owner invite attempted without NEXT_PUBLIC_SUPABASE_URL configured.');
     return {
       status: 'error',
-      message:
-        'Invites are not configured yet. Please contact support to finish setup.',
+      message: 'Invites are not configured yet. Please contact support to finish setup.',
     };
   }
 
@@ -120,7 +109,7 @@ export async function inviteOwnerAction(
     };
   }
 
-  // Check if user already exists by listing users with this email
+  // Check if user already exists
   const { data: userList } = await adminClient.auth.admin.listUsers();
   const existingUser = userList?.users?.find(u => u.email?.toLowerCase() === email);
 
@@ -140,14 +129,18 @@ export async function inviteOwnerAction(
   try {
     redirectTo = new URL('/login', siteUrl).toString();
   } catch (error) {
-    console.warn('Invalid site URL for invite redirect; falling back to manual join', {
-      siteUrl,
-      error,
-    });
+    console.warn('Invalid site URL for invite redirect', { siteUrl, error });
   }
 
+  const orgId = profileRecord.org_id as string | null | undefined;
+
+  // Send invite with metadata that will be used to create profile on first login
   const inviteResult = await adminClient.auth.admin.inviteUserByEmail(email, {
     redirectTo,
+    data: {
+      role: 'owner',
+      org_id: orgId || null,
+    }
   });
 
   if (inviteResult.error) {
@@ -158,41 +151,8 @@ export async function inviteOwnerAction(
     };
   }
 
-  const invitedUser = inviteResult.data.user;
-
-  if (!invitedUser) {
-    return {
-      status: 'success',
-      message: 'Invite sent!',
-    };
-  }
-
-  // Create profile for the invited user
-  const orgId = profileRecord.org_id as string | null | undefined;
-
-  const profileInsert = {
-    user_id: invitedUser.id,
-    role: 'owner' as const,
-    org_id: orgId || null,
-  };
-
-  // Insert the profile (email is NOT a column in profiles table)
-  const { error: insertError } = await (adminClient.from('profiles') as any).upsert(
-  profileInsert, 
-  { onConflict: 'user_id' }
-);
-
-  if (insertError) {
-    console.error('Failed to link invited owner to agency', insertError);
-    return {
-      status: 'error',
-      message:
-        'Invite sent but we could not link the user to your agency. Please contact support.',
-    };
-  }
-
   return {
     status: 'success',
-    message: 'Invite sent!',
+    message: 'Invite sent! They will receive an email to set their password.',
   };
 }
