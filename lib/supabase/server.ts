@@ -1,5 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/database';
 
 type DenoEnv = { env?: { get(name: string): string | undefined } };
@@ -100,7 +101,7 @@ function resolveSupabaseAnonKeyOrThrow() {
 /**
  * Read-only client for Server Components (no cookie writes).
  *
- * Uses the new getAll API so SSR won’t warn; does NOT provide setAll.
+ * Uses the new getAll API so SSR won't warn; does NOT provide setAll.
  */
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
@@ -163,10 +164,15 @@ export function createSupabaseAdminClient(
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured');
   }
 
-  const { createClient } = require('@supabase/supabase-js');
-  return createClient(
+  // Use the imported createClient from @supabase/supabase-js
+  return createClient<Database>(
     resolvedUrl,
     resolvedKey,
-    { auth: { persistSession: false, autoRefreshToken: false } } as any
-  ) as any;
+    { 
+      auth: { 
+        persistSession: false, 
+        autoRefreshToken: false 
+      } 
+    }
+  );
 }
