@@ -51,7 +51,7 @@ export async function sendRcsMessage(params: {
   toPhoneE164: string;
   payload: any; // Can be text, cards, or media message
 }) {
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient() as any;
   
   // Get org integration details
   const integ = await admin
@@ -122,7 +122,7 @@ export async function sendSmsMessage(params: {
   toPhoneE164: string;
   text: string;
 }) {
-  const admin = createSupabaseAdminClient();
+  const admin = createSupabaseAdminClient() as any;
   
   const integ = await admin
     .from('org_integrations')
