@@ -168,16 +168,13 @@ export async function inviteOwnerAction(
   }
 
   // Create profile for the invited user
-  const profileInsert: Record<string, any> = {
-    user_id: invitedUser.id,
-    role: 'owner',
-  };
-
   const orgId = profileRecord.org_id as string | null | undefined;
 
-  if (orgId) {
-    profileInsert.org_id = orgId;
-  }
+  const profileInsert = {
+    user_id: invitedUser.id,
+    role: 'owner' as const,
+    org_id: orgId || null,
+  };
 
   // Insert the profile (email is NOT a column in profiles table)
   const { error: insertError } = await adminClient
