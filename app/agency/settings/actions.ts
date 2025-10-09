@@ -120,14 +120,12 @@ export async function inviteOwnerAction(
     };
   }
 
-  const existingUser = await adminClient.auth.admin.getUserByEmail(email);
+  // Check if user already exists by listing users with this email
+  const { data: userList, error: listError } = await adminClient.auth.admin.listUsers();
+  
+  const existingUser = userList?.users?.find(u => u.email?.toLowerCase() === email);
 
-  if (existingUser.error) {
-    console.error('Failed to check for existing user before sending owner invite', {
-      email,
-      error: existingUser.error,
-    });
-  } else if (existingUser.data?.user) {
+  if (existingUser) {
     return {
       status: 'error',
       message: 'That user is already registered.',
@@ -187,12 +185,15 @@ export async function inviteOwnerAction(
   // FIXED: Removed profileInsert.email = email;
   // The 'email' column does not exist in the profiles table
 
+  console.log('Attempting to insert profile with data:', JSON.stringify(profileInsert, null, 2));
+
   const { error: insertError } = await adminClient
     .from('profiles')
     .upsert(profileInsert, { onConflict: 'user_id' });
 
   if (insertError) {
     console.error('Failed to link invited owner to agency', insertError);
+    console.error('Insert error details:', JSON.stringify(insertError, null, 2));
     return {
       status: 'error',
       message:
