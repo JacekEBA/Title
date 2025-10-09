@@ -164,7 +164,6 @@ export function createSupabaseAdminClient(
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured');
   }
 
-  // Use the imported createClient from @supabase/supabase-js
   return createClient<Database>(
     resolvedUrl,
     resolvedKey,
