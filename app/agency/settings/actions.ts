@@ -121,8 +121,7 @@ export async function inviteOwnerAction(
   }
 
   // Check if user already exists by listing users with this email
-  const { data: userList, error: listError } = await adminClient.auth.admin.listUsers();
-  
+  const { data: userList } = await adminClient.auth.admin.listUsers();
   const existingUser = userList?.users?.find(u => u.email?.toLowerCase() === email);
 
   if (existingUser) {
@@ -153,12 +152,9 @@ export async function inviteOwnerAction(
 
   if (inviteResult.error) {
     console.error('Failed to send owner invite', inviteResult.error);
-    const failureMessage = existingUser.error
-      ? 'Unable to reach Supabase Admin API. Check your Service Role Key configuration.'
-      : 'Failed to send invite. Please try again.';
     return {
       status: 'error',
-      message: failureMessage,
+      message: 'Failed to send invite. Please try again.',
     };
   }
 
@@ -171,6 +167,7 @@ export async function inviteOwnerAction(
     };
   }
 
+  // Create profile for the invited user
   const profileInsert: Record<string, any> = {
     user_id: invitedUser.id,
     role: 'owner',
@@ -182,18 +179,13 @@ export async function inviteOwnerAction(
     profileInsert.org_id = orgId;
   }
 
-  // FIXED: Removed profileInsert.email = email;
-  // The 'email' column does not exist in the profiles table
-
-  console.log('Attempting to insert profile with data:', JSON.stringify(profileInsert, null, 2));
-
+  // Insert the profile (email is NOT a column in profiles table)
   const { error: insertError } = await adminClient
     .from('profiles')
     .upsert(profileInsert, { onConflict: 'user_id' });
 
   if (insertError) {
     console.error('Failed to link invited owner to agency', insertError);
-    console.error('Insert error details:', JSON.stringify(insertError, null, 2));
     return {
       status: 'error',
       message:
