@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const event: PinnacleEvent = JSON.parse(rawBody);
-    const admin = createSupabaseAdminClient();
+    const admin = createSupabaseAdminClient() as any;
 
     // Check for duplicate events
     const externalId =
