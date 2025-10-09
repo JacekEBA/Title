@@ -177,9 +177,10 @@ export async function inviteOwnerAction(
   };
 
   // Insert the profile (email is NOT a column in profiles table)
-  const { error: insertError } = await adminClient
-    .from('profiles')
-    .upsert(profileInsert, { onConflict: 'user_id' });
+  const { error: insertError } = await (adminClient.from('profiles') as any).upsert(
+  profileInsert, 
+  { onConflict: 'user_id' }
+);
 
   if (insertError) {
     console.error('Failed to link invited owner to agency', insertError);
