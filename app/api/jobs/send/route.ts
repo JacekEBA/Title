@@ -43,7 +43,7 @@ export async function GET() {
     });
   }
 
-  const admin = createSupabaseAdminClient(serviceRoleKey);
+  const admin = createSupabaseAdminClient(serviceRoleKey) as any;
   const nowIso = new Date().toISOString();
 
   try {
