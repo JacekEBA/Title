@@ -121,13 +121,19 @@ export async function requireAgencyAccess(): Promise<void> {
 export async function landingRedirectPath(): Promise<string> {
   const profile = await getCurrentProfile();
   
+  // If no profile exists, send to onboarding
   if (!profile) {
-    return '/dashboard';
+    return '/onboarding';
   }
 
   // Agency users go to agency dashboard
   if (profile.role === 'owner' || profile.role === 'agency_staff') {
     return '/agency';
+  }
+
+  // If client has no org yet, send to onboarding
+  if (!profile.org_id) {
+    return '/onboarding';
   }
 
   // Get user's org memberships
@@ -143,6 +149,11 @@ export async function landingRedirectPath(): Promise<string> {
   // If exactly one org, redirect there
   if (typedMemberships.length === 1) {
     return `/org/${typedMemberships[0].org_id}`;
+  }
+
+  // If they have their profile org_id, use that
+  if (profile.org_id) {
+    return `/org/${profile.org_id}`;
   }
 
   // Otherwise, show org chooser
