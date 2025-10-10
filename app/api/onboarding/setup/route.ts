@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseActionClient, createSupabaseAdminClient, getSupabaseServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/server';
+import type { Database } from '@/types/database';
 
 export async function POST(request: Request) {
   try {
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl);
+    const adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl) as SupabaseClient<Database>;
 
     // Create organization
     const { data: org, error: orgError } = await adminClient
