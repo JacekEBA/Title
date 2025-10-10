@@ -3,6 +3,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseActionClient, createSupabaseAdminClient, getSupabaseServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 
+interface CourseInput {
+  name: string;
+  timezone: string;
+  phone?: string | null;
+  email?: string | null;
+  address_line1?: string | null;
+  city?: string | null;
+  region?: string | null;
+  postal_code?: string | null;
+}
+
 export async function POST(request: Request) {
   try {
     const { org_name, courses } = await request.json();
@@ -102,11 +113,18 @@ export async function POST(request: Request) {
       console.error('Failed to create org membership:', membershipError);
     }
 
-    // Create courses
-    const coursesToInsert = courses.map((courseName: string) => ({
+    // Create courses with all the new fields
+    const coursesToInsert = courses.map((course: CourseInput) => ({
       org_id: org.id,
-      name: courseName,
-      timezone: 'America/Chicago',
+      name: course.name,
+      timezone: course.timezone || 'America/Chicago',
+      phone: course.phone || null,
+      email: course.email || null,
+      address_line1: course.address_line1 || null,
+      city: course.city || null,
+      region: course.region || null,
+      postal_code: course.postal_code || null,
+      country: 'US',
     }));
 
     const { error: coursesError } = await adminClient
