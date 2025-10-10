@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseActionClient } from '@/lib/supabase/server';
+import { createSupabaseActionClient, createSupabaseAdminClient, getSupabaseServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify user is client_admin (should be automatic from trigger)
+    // Verify user is client_admin
     if (existingProfile?.role !== 'client_admin') {
       return NextResponse.json(
         { error: 'You do not have permission to create an organization' },
@@ -46,8 +46,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create organization - RLS policy allows client_admin to create
-    const { data: org, error: orgError } = await supabase
+    // Use admin client to bypass RLS for initial setup
+    const serviceRoleKey = getSupabaseServiceRoleKey();
+    const supabaseUrl = getSupabaseUrl();
+
+    if (!serviceRoleKey || !supabaseUrl) {
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
+    const adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl);
+
+    // Create organization
+    const { data: org, error: orgError } = await adminClient
       .from('organizations')
       .insert({
         name: org_name,
@@ -65,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     // Update profile with org_id
-    const { error: profileError } = await supabase
+    const { error: profileError } = await adminClient
       .from('profiles')
       .update({ org_id: org.id })
       .eq('user_id', user.id);
@@ -75,7 +88,7 @@ export async function POST(request: Request) {
     }
 
     // Create org membership
-    const { error: membershipError } = await supabase
+    const { error: membershipError } = await adminClient
       .from('org_memberships')
       .insert({
         org_id: org.id,
@@ -91,10 +104,10 @@ export async function POST(request: Request) {
     const coursesToInsert = courses.map((courseName: string) => ({
       org_id: org.id,
       name: courseName,
-      timezone: 'America/Chicago', // Default timezone
+      timezone: 'America/Chicago',
     }));
 
-    const { error: coursesError } = await supabase
+    const { error: coursesError } = await adminClient
       .from('courses')
       .insert(coursesToInsert);
 
