@@ -1,27 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useFormState } from 'react-dom';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { updatePasswordAction } from '@/app/login/actions';
+import Link from 'next/link';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-
-type ActionState = { ok: boolean; message?: string };
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  const [state, action] = useFormState<ActionState, FormData>(
-    updatePasswordAction,
-    { ok: false }
-  );
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [supabase] = useState(() => createSupabaseBrowserClient());
 
   useEffect(() => {
     const handleAuthToken = async () => {
-      // Get the hash from the URL
       const hash = window.location.hash;
       
       if (!hash) {
@@ -29,11 +22,9 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // Parse hash parameters
       const params = new URLSearchParams(hash.substring(1));
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
-      const type = params.get('type');
 
       if (!accessToken) {
         setError('Invalid authentication token. Please click the link in your email again.');
@@ -41,7 +32,6 @@ export default function ResetPasswordPage() {
       }
 
       // Exchange the tokens with Supabase to establish a session
-      const supabase = createSupabaseBrowserClient();
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken || '',
@@ -60,18 +50,51 @@ export default function ResetPasswordPage() {
     };
 
     handleAuthToken();
-  }, []);
+  }, [supabase]);
 
-  // Redirect to login after successful password update
-  useEffect(() => {
-    if (state.ok) {
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const password = String(formData.get('password') ?? '');
+    const confirm = String(formData.get('confirm') ?? '');
+
+    if (!password || password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      setLoading(false);
+      return;
     }
-  }, [state.ok, router]);
 
-  if (error) {
+    if (password !== confirm) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
+
+    // Update password directly using the browser client (which has the session)
+    const { error: updateError } = await supabase.auth.updateUser({ 
+      password 
+    });
+
+    if (updateError) {
+      console.error('Password update error:', updateError);
+      setError('Could not update password. Please try again or request a new reset link.');
+      setLoading(false);
+      return;
+    }
+
+    setSuccess(true);
+    setLoading(false);
+    
+    // Redirect to login after 2 seconds
+    setTimeout(() => {
+      router.push('/login');
+    }, 2000);
+  };
+
+  if (error && !isReady) {
     return (
       <main className="login-bg">
         <div className="auth-wrap">
@@ -123,7 +146,7 @@ export default function ResetPasswordPage() {
           <h1 className="headline">Set a new password</h1>
           <p className="subtext">Enter a new password for your account.</p>
           
-          <form action={action} className="form-grid">
+          <form onSubmit={handleSubmit} className="form-grid">
             <input
               name="password"
               type="password"
@@ -131,6 +154,7 @@ export default function ResetPasswordPage() {
               required
               minLength={8}
               className="input"
+              disabled={loading || success}
             />
             <input
               name="confirm"
@@ -139,20 +163,31 @@ export default function ResetPasswordPage() {
               required
               minLength={8}
               className="input"
+              disabled={loading || success}
             />
             
-            {state.message && (
-              <div className={state.ok ? 'notice' : 'alert'}>
-                {state.message}
+            {error && (
+              <div className="alert">
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="notice">
+                Password updated! Redirecting to login...
               </div>
             )}
             
-            <button className="btn-primary w-full" type="submit">
-              Update password
+            <button 
+              className="btn-primary w-full" 
+              type="submit"
+              disabled={loading || success}
+            >
+              {loading ? 'Updating...' : 'Update password'}
             </button>
           </form>
           
-          {!state.ok && (
+          {!success && (
             <div className="hint muted">
               Done?{' '}
               <Link href="/login" className="link">
