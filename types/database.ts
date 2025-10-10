@@ -136,6 +136,44 @@ export interface Database {
           event_status?: Database['public']['Enums']['calendar_event_status']
         }
       }
+      organizations: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          status: string
+          default_send_window_start: string | null
+          default_send_window_end: string | null
+          pinnacle_company_id: string | null
+          pinnacle_brand_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          status?: string
+          default_send_window_start?: string | null
+          default_send_window_end?: string | null
+          pinnacle_company_id?: string | null
+          pinnacle_brand_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          status?: string
+          default_send_window_start?: string | null
+          default_send_window_end?: string | null
+          pinnacle_company_id?: string | null
+          pinnacle_brand_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       send_jobs: {
         Row: {
           id: string
