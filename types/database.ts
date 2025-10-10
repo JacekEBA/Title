@@ -136,6 +136,74 @@ export interface Database {
           event_status?: Database['public']['Enums']['calendar_event_status']
         }
       }
+      courses: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          timezone: string
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          region: string | null
+          postal_code: string | null
+          country: string
+          latitude: number | null
+          longitude: number | null
+          google_place_id: string | null
+          phone: string | null
+          email: string | null
+          pinnacle_profile_id: string | null
+          send_window_start: string | null
+          send_window_end: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          timezone: string
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          region?: string | null
+          postal_code?: string | null
+          country?: string
+          latitude?: number | null
+          longitude?: number | null
+          google_place_id?: string | null
+          phone?: string | null
+          email?: string | null
+          pinnacle_profile_id?: string | null
+          send_window_start?: string | null
+          send_window_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          timezone?: string
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          region?: string | null
+          postal_code?: string | null
+          country?: string
+          latitude?: number | null
+          longitude?: number | null
+          google_place_id?: string | null
+          phone?: string | null
+          email?: string | null
+          pinnacle_profile_id?: string | null
+          send_window_start?: string | null
+          send_window_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       organizations: {
         Row: {
           id: string
@@ -170,6 +238,61 @@ export interface Database {
           default_send_window_end?: string | null
           pinnacle_company_id?: string | null
           pinnacle_brand_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      org_memberships: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          role: Database['public']['Enums']['membership_role']
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          role?: Database['public']['Enums']['membership_role']
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          user_id?: string
+          role?: Database['public']['Enums']['membership_role']
+          created_at?: string
+        }
+      }
+      profiles: {
+        Row: {
+          user_id: string
+          org_id: string | null
+          role: Database['public']['Enums']['membership_role']
+          full_name: string | null
+          timezone: string | null
+          phone: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          org_id?: string | null
+          role: Database['public']['Enums']['membership_role']
+          full_name?: string | null
+          timezone?: string | null
+          phone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          org_id?: string | null
+          role?: Database['public']['Enums']['membership_role']
+          full_name?: string | null
+          timezone?: string | null
+          phone?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -210,38 +333,6 @@ export interface Database {
           updated_at?: string
           locked_at?: string | null
           locked_by?: string | null
-        }
-      }
-      profiles: {
-        Row: {
-          user_id: string
-          org_id: string | null
-          role: Database['public']['Enums']['membership_role']
-          full_name: string | null
-          timezone: string | null
-          phone: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          user_id: string
-          org_id?: string | null
-          role: Database['public']['Enums']['membership_role']
-          full_name?: string | null
-          timezone?: string | null
-          phone?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          user_id?: string
-          org_id?: string | null
-          role?: Database['public']['Enums']['membership_role']
-          full_name?: string | null
-          timezone?: string | null
-          phone?: string | null
-          created_at?: string
-          updated_at?: string
         }
       }
       [key: string]: {
