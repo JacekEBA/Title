@@ -14,16 +14,15 @@ export default function LoginPage() {
     // Parse the hash parameters
     const params = new URLSearchParams(hash.substring(1));
     const accessToken = params.get('access_token');
-    const type = params.get('type');
     
     // If there's an access token in the URL, this is either:
     // - A password reset link (type=recovery)
     // - An invite link (type=invite or type=magiclink)
     if (accessToken) {
-      // Redirect to reset password page with the full hash
-      router.replace('/reset-password' + hash);
+      // Redirect to reset password page, preserving the hash
+      window.location.href = '/reset-password' + hash;
     }
-  }, [router]);
+  }, []);
 
   return (
     <main className="login-bg">
