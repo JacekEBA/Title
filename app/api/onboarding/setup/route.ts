@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseActionClient, createSupabaseAdminClient, getSupabaseServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/server';
+import type { Database } from '@/types/database';
 
 export async function POST(request: Request) {
   try {
@@ -59,13 +60,15 @@ export async function POST(request: Request) {
 
     const adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl);
 
-    // Create organization
+    // Create organization - explicitly type the insert data
+    const orgInsertData: Database['public']['Tables']['organizations']['Insert'] = {
+      name: org_name,
+      slug: org_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    };
+
     const { data: org, error: orgError } = await adminClient
       .from('organizations')
-      .insert({
-        name: org_name,
-        slug: org_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      })
+      .insert(orgInsertData)
       .select('id')
       .single();
 
@@ -93,7 +96,7 @@ export async function POST(request: Request) {
       .insert({
         org_id: org.id,
         user_id: user.id,
-        role: 'client_admin',
+        role: 'client_admin' as Database['public']['Enums']['membership_role'],
       });
 
     if (membershipError) {
@@ -101,7 +104,7 @@ export async function POST(request: Request) {
     }
 
     // Create courses
-    const coursesToInsert = courses.map((courseName: string) => ({
+    const coursesToInsert: Database['public']['Tables']['courses']['Insert'][] = courses.map((courseName: string) => ({
       org_id: org.id,
       name: courseName,
       timezone: 'America/Chicago',
