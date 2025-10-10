@@ -168,18 +168,39 @@ export async function inviteMemberAction(
   if (inviteResult.data?.user?.id) {
     const newUserId = inviteResult.data.user.id;
 
-    // Create profile with admin client (bypasses RLS)
-    const { error: profileError } = await (adminClient as any)
+    // Check if profile already exists (may be created by database trigger)
+    const { data: existingProfile } = await (adminClient as any)
       .from('profiles')
-      .insert({
-        user_id: newUserId,
-        role,
-        org_id,
-      });
+      .select('user_id')
+      .eq('user_id', newUserId)
+      .maybeSingle();
 
-    if (profileError) {
-      console.error('Failed to create profile for invited user', profileError);
-      // Don't fail the whole invite - user can still sign in
+    if (!existingProfile) {
+      // Profile doesn't exist, create it
+      const { error: profileError } = await (adminClient as any)
+        .from('profiles')
+        .insert({
+          user_id: newUserId,
+          role,
+          org_id,
+        });
+
+      if (profileError) {
+        console.error('Failed to create profile for invited user', profileError);
+      }
+    } else {
+      // Profile exists, update it with role and org_id
+      const { error: profileUpdateError } = await (adminClient as any)
+        .from('profiles')
+        .update({
+          role,
+          org_id,
+        })
+        .eq('user_id', newUserId);
+
+      if (profileUpdateError) {
+        console.error('Failed to update profile for invited user', profileUpdateError);
+      }
     }
 
     // Create org membership with admin client (bypasses RLS)
