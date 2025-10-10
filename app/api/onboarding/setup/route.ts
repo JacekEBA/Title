@@ -59,8 +59,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl) as SupabaseClient<Database>;
-
+    const adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl) as any;
+    
     // Create organization
     const { data: org, error: orgError } = await adminClient
       .from('organizations')
