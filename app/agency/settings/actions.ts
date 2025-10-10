@@ -1,31 +1,3 @@
-"use server";
-
-import { redirect } from 'next/navigation';
-import { z } from 'zod';
-
-import {
-  createSupabaseActionClient,
-  createSupabaseAdminClient,
-  getSupabaseServiceRoleKey,
-  getSupabaseUrl,
-} from '@/lib/supabase/server';
-
-import type { InviteOwnerActionState } from './inviteOwnerState';
-
-export async function signOutAction() {
-  const supabase = createSupabaseActionClient();
-  await supabase.auth.signOut();
-  redirect('/login');
-}
-
-const inviteOwnerSchema = z.object({
-  email: z
-    .string({ required_error: 'Enter an email address.' })
-    .trim()
-    .min(1, 'Enter an email address.')
-    .email('Enter a valid email address.'),
-});
-
 export async function inviteOwnerAction(
   _prevState: InviteOwnerActionState,
   formData: FormData
@@ -134,7 +106,7 @@ export async function inviteOwnerAction(
 
   const orgId = profileRecord.org_id as string | null | undefined;
 
-  // Send invite with metadata that will be used to create profile on first login
+  // Send invite
   const inviteResult = await adminClient.auth.admin.inviteUserByEmail(email, {
     redirectTo,
     data: {
@@ -149,6 +121,23 @@ export async function inviteOwnerAction(
       status: 'error',
       message: 'Failed to send invite. Please try again.',
     };
+  }
+
+  // CRITICAL: Create the profile immediately after invite succeeds
+  if (inviteResult.data?.user?.id) {
+    const { error: profileCreateError } = await adminClient
+      .from('profiles')
+      .insert({
+        user_id: inviteResult.data.user.id,
+        role: 'owner',
+        org_id: orgId || null,
+      });
+
+    if (profileCreateError) {
+      console.error('Failed to create profile for invited user', profileCreateError);
+      // Note: Don't return error here - the invite was sent successfully
+      // The user can still sign in, but may need manual profile creation
+    }
   }
 
   return {
