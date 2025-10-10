@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import type { User } from '@supabase/supabase-js';
 import { requireOrgAccess } from '@/lib/auth';
 import InviteMemberForm from './InviteMemberForm';
 import { signOutAction } from './actions';
@@ -62,7 +63,7 @@ export default async function OrgSettingsPage({ params }: Params) {
   const memberEmails: Record<string, string> = {};
   if (isClientAdmin && members.length > 0) {
     const { data: { users } } = await supabase.auth.admin.listUsers();
-    users?.forEach(u => {
+    users?.forEach((u: User) => {
       if (u.id && u.email) {
         memberEmails[u.id] = u.email;
       }
