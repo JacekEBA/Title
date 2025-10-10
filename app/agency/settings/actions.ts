@@ -151,7 +151,7 @@ export async function inviteOwnerAction(
 
   // CRITICAL: Create the profile immediately after invite succeeds
   if (inviteResult.data?.user?.id) {
-    const { error: profileCreateError } = await adminClient
+    const { error: profileCreateError } = await (adminClient as any)
       .from('profiles')
       .insert({
         user_id: inviteResult.data.user.id,
