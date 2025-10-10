@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/database';
 
 type DenoEnv = { env?: { get(name: string): string | undefined } };
@@ -148,12 +148,12 @@ export function createSupabaseActionClient() {
 
 /**
  * Admin client for cron/webhooks (service role; bypasses RLS by design).
- * Now properly typed to return SupabaseClient<Database>
+ * DO NOT add explicit return type - let TypeScript infer it
  */
 export function createSupabaseAdminClient(
   serviceRoleKey?: string,
   supabaseUrl?: string
-): SupabaseClient<Database> {
+) {
   const resolvedKey = normalizeEnvValue(serviceRoleKey ?? getSupabaseServiceRoleKey());
   const resolvedUrl = normalizeEnvValue(supabaseUrl ?? getSupabaseUrl());
 
