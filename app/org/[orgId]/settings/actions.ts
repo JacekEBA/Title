@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
+import type { User } from '@supabase/supabase-js';
 import {
   createSupabaseActionClient,
   createSupabaseAdminClient,
@@ -9,6 +10,49 @@ import {
   getSupabaseUrl,
 } from '@/lib/supabase/server';
 import type { InviteMemberActionState } from './inviteMemberState';
+
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+async function findUserByEmail(
+  adminClient: SupabaseAdminClient,
+  email: string
+): Promise<{ user: User | null; error: unknown }> {
+  const normalizedEmail = email.toLowerCase();
+  const pageSize = 100;
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await adminClient.auth.admin.listUsers({
+      page,
+      perPage: pageSize,
+    });
+
+    if (error) {
+      return { user: null, error };
+    }
+
+    const typedData = data as (typeof data & {
+      users?: User[];
+      nextPage?: number | null;
+    }) | null;
+
+    const users = typedData?.users ?? [];
+    const match = users.find(user => user.email?.toLowerCase() === normalizedEmail);
+
+    if (match) {
+      return { user: match, error: null };
+    }
+
+    const nextPage = typedData?.nextPage ?? null;
+    if (!nextPage) {
+      break;
+    }
+
+    page = nextPage;
+  }
+
+  return { user: null, error: null };
+}
 
 export async function signOutAction() {
   const supabase = createSupabaseActionClient();
@@ -59,19 +103,21 @@ export async function inviteMemberAction(
   }
 
   // Verify user is client_admin for this org
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('org_memberships')
-    .select('role')
+    .select('role, org_id')
     .eq('org_id', org_id)
     .eq('user_id', userData.user.id)
-    .single();
+    .maybeSingle();
 
-  if (!membership || membership.role !== 'client_admin') {
+  if (membershipError || !membership || membership.role !== 'client_admin') {
     return {
       status: 'error',
       message: 'Only admins can send invites.',
     };
   }
+
+  const targetOrgId = membership.org_id ?? org_id;
 
   const serviceRoleKey = getSupabaseServiceRoleKey();
   const supabaseUrl = getSupabaseUrl();
@@ -95,16 +141,53 @@ export async function inviteMemberAction(
     };
   }
 
-  // Check if user already exists
-  const { data: userList } = await adminClient.auth.admin.listUsers();
-  const existingUser = userList?.users?.find(u => u.email?.toLowerCase() === emailLower);
+  const {
+    data: existingInvite,
+    error: existingInviteError,
+  } = await (adminClient as any)
+    .from('client_invites')
+    .select('id, status')
+    .eq('org_id', targetOrgId)
+    .eq('email', emailLower)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingInviteError) {
+    console.error('Failed to check for existing invite', existingInviteError);
+    return {
+      status: 'error',
+      message: 'Failed to send invite. Please try again later.',
+    };
+  }
+
+  if (existingInvite?.status === 'pending') {
+    return {
+      status: 'error',
+      message: 'An invite has already been sent to that email address.',
+    };
+  }
+
+  // Check if user already exists (iterate across all pages to avoid missing matches)
+  const { user: existingUser, error: findUserError } = await findUserByEmail(
+    adminClient,
+    emailLower
+  );
+
+  if (findUserError) {
+    console.error('Failed to search for existing user before inviting', findUserError);
+    return {
+      status: 'error',
+      message: 'Failed to send invite. Please try again later.',
+    };
+  }
 
   if (existingUser) {
     // Check if they're already a member of this org
     const { data: existingMembership } = await (adminClient as any)
       .from('org_memberships')
       .select('id')
-      .eq('org_id', org_id)
+      .eq('org_id', targetOrgId)
       .eq('user_id', existingUser.id)
       .maybeSingle();
 
@@ -119,7 +202,7 @@ export async function inviteMemberAction(
     const { error: membershipError } = await (adminClient as any)
       .from('org_memberships')
       .insert({
-        org_id,
+        org_id: targetOrgId,
         user_id: existingUser.id,
         role,
       });
@@ -132,9 +215,23 @@ export async function inviteMemberAction(
       };
     }
 
+    const { error: inviteUpdateError } = await (adminClient as any)
+      .from('client_invites')
+      .update({
+        status: 'accepted',
+        invited_user_id: existingUser.id,
+      })
+      .eq('org_id', targetOrgId)
+      .eq('email', emailLower)
+      .eq('status', 'pending');
+
+    if (inviteUpdateError) {
+      console.error('Failed to update invite status after adding existing user', inviteUpdateError);
+    }
+
     return {
       status: 'success',
-      message: 'User added to organization successfully!',
+      message: `Added ${emailLower} as ${role}.`,
     };
   }
 
@@ -151,55 +248,87 @@ export async function inviteMemberAction(
     console.warn('Invalid site URL for invite redirect', { siteUrl, error });
   }
 
-  const inviteResult = await adminClient.auth.admin.inviteUserByEmail(emailLower, {
-    redirectTo,
-    data: {
-      role,
-      org_id,
-    },
-  });
+  try {
+    const inviteResult = await adminClient.auth.admin.inviteUserByEmail(emailLower, {
+      redirectTo,
+      data: {
+        role,
+        org_id: targetOrgId,
+      },
+    });
+    if (inviteResult.error) {
+      console.error('Failed to send invite', inviteResult.error);
+      return {
+        status: 'error',
+        message: 'Failed to send invite. Please try again.',
+      };
+    }
 
-  if (inviteResult.error) {
-    console.error('Failed to send invite', inviteResult.error);
+    const { error: inviteRecordError } = await (adminClient as any)
+      .from('client_invites')
+      .insert({
+        org_id: targetOrgId,
+        email: emailLower,
+        inviter_id: userData.user.id,
+        role,
+        status: 'pending',
+      });
+
+    if (inviteRecordError) {
+      console.error('Failed to record client invite', inviteRecordError);
+    }
+
+    // Create profile and org_membership for the new user
+    if (inviteResult.data?.user?.id) {
+      const newUserId = inviteResult.data.user.id;
+
+      // Create profile
+      const { error: profileError } = await (adminClient as any)
+        .from('profiles')
+        .insert({
+          user_id: newUserId,
+          role,
+          org_id: targetOrgId,
+        });
+
+      if (profileError) {
+        console.error('Failed to create profile for invited user', profileError);
+      }
+
+      // Create org membership
+      const { error: membershipError } = await (adminClient as any)
+        .from('org_memberships')
+        .insert({
+          org_id: targetOrgId,
+          user_id: newUserId,
+          role,
+        });
+
+      if (membershipError) {
+        console.error('Failed to create org membership for invited user', membershipError);
+      }
+
+      const { error: inviteUserIdUpdateError } = await (adminClient as any)
+        .from('client_invites')
+        .update({ invited_user_id: newUserId })
+        .eq('org_id', targetOrgId)
+        .eq('email', emailLower)
+        .eq('status', 'pending');
+
+      if (inviteUserIdUpdateError) {
+        console.error('Failed to attach invited user id to client invite', inviteUserIdUpdateError);
+      }
+    }
+
+    return {
+      status: 'success',
+      message: `Invite sent to ${emailLower} as ${role}.`,
+    };
+  } catch (error) {
+    console.error('Failed to send invite', error);
     return {
       status: 'error',
       message: 'Failed to send invite. Please try again.',
     };
   }
-
-  // Create profile and org_membership for the new user
-  if (inviteResult.data?.user?.id) {
-    const newUserId = inviteResult.data.user.id;
-
-    // Create profile
-    const { error: profileError } = await (adminClient as any)
-      .from('profiles')
-      .insert({
-        user_id: newUserId,
-        role,
-        org_id,
-      });
-
-    if (profileError) {
-      console.error('Failed to create profile for invited user', profileError);
-    }
-
-    // Create org membership
-    const { error: membershipError } = await (adminClient as any)
-      .from('org_memberships')
-      .insert({
-        org_id,
-        user_id: newUserId,
-        role,
-      });
-
-    if (membershipError) {
-      console.error('Failed to create org membership for invited user', membershipError);
-    }
-  }
-
-  return {
-    status: 'success',
-    message: 'Invite sent! They will receive an email to set their password.',
-  };
 }

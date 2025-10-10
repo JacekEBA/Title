@@ -227,6 +227,38 @@ export interface Database {
           deleted_at?: string | null
         }
       }
+      client_invites: {
+        Row: {
+          id: string
+          org_id: string
+          email: string
+          inviter_id: string | null
+          invited_user_id: string | null
+          role: 'client_admin' | 'client_viewer'
+          status: 'pending' | 'accepted' | 'revoked' | 'expired'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          email: string
+          inviter_id?: string | null
+          invited_user_id?: string | null
+          role: 'client_admin' | 'client_viewer'
+          status?: 'pending' | 'accepted' | 'revoked' | 'expired'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          email?: string
+          inviter_id?: string | null
+          invited_user_id?: string | null
+          role?: 'client_admin' | 'client_viewer'
+          status?: 'pending' | 'accepted' | 'revoked' | 'expired'
+          created_at?: string
+        }
+      }
       contact_imports: {
         Row: {
           id: string

@@ -60,17 +60,24 @@ export async function isAgencyUser(): Promise<boolean> {
  * Check if user has access to a specific organization
  */
 export async function hasOrgAccess(orgId: string): Promise<boolean> {
+  const session = await getSession();
+
+  if (!session) {
+    return false;
+  }
+
   // Agency users have access to all orgs
   if (await isAgencyUser()) {
     return true;
   }
 
-  // Check if user has membership in this org
+  // Check if current user has membership in this org
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from('org_memberships')
     .select('id')
     .eq('org_id', orgId)
+    .eq('user_id', session.user.id)
     .maybeSingle();
 
   if (error) {
