@@ -64,7 +64,7 @@ export default function CourseDetailTabs({ activeTab, course, contacts, imports,
       formData.append('course_id', courseId);
       formData.append('org_id', orgId);
 
-      const response = await fetch(`/api/org/${orgId}/courses/${courseId}/contacts/import`, {
+      const response = await fetch('/api/contacts/import', {
         method: 'POST',
         body: formData,
       });
