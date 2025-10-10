@@ -1,9 +1,35 @@
+"use server";
+
+import { redirect } from 'next/navigation';
+import { z } from 'zod';
+
+import {
+  createSupabaseActionClient,
+  createSupabaseAdminClient,
+  getSupabaseServiceRoleKey,
+  getSupabaseUrl,
+} from '@/lib/supabase/server';
+
+import type { InviteOwnerActionState } from './inviteOwnerState';
+
+export async function signOutAction() {
+  const supabase = createSupabaseActionClient();
+  await supabase.auth.signOut();
+  redirect('/login');
+}
+
+const inviteOwnerSchema = z.object({
+  email: z
+    .string({ required_error: 'Enter an email address.' })
+    .trim()
+    .min(1, 'Enter an email address.')
+    .email('Enter a valid email address.'),
+});
+
 export async function inviteOwnerAction(
   _prevState: InviteOwnerActionState,
   formData: FormData
 ): Promise<InviteOwnerActionState> {
-  'use server';
-
   const parsed = inviteOwnerSchema.safeParse({
     email: formData.get('email'),
   });
