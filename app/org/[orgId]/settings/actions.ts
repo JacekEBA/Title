@@ -105,7 +105,7 @@ export async function inviteMemberAction(
   // Verify user is client_admin for this org
   const { data: membership, error: membershipError } = await supabase
     .from('org_memberships')
-    .select('role')
+    .select('role, org_id')
     .eq('org_id', org_id)
     .eq('user_id', userData.user.id)
     .maybeSingle();
@@ -116,6 +116,8 @@ export async function inviteMemberAction(
       message: 'Only admins can send invites.',
     };
   }
+
+  const targetOrgId = membership.org_id ?? org_id;
 
   const serviceRoleKey = getSupabaseServiceRoleKey();
   const supabaseUrl = getSupabaseUrl();
@@ -145,7 +147,7 @@ export async function inviteMemberAction(
   } = await (adminClient as any)
     .from('client_invites')
     .select('id, status')
-    .eq('org_id', org_id)
+    .eq('org_id', targetOrgId)
     .eq('email', emailLower)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -185,7 +187,7 @@ export async function inviteMemberAction(
     const { data: existingMembership } = await (adminClient as any)
       .from('org_memberships')
       .select('id')
-      .eq('org_id', org_id)
+      .eq('org_id', targetOrgId)
       .eq('user_id', existingUser.id)
       .maybeSingle();
 
@@ -200,7 +202,7 @@ export async function inviteMemberAction(
     const { error: membershipError } = await (adminClient as any)
       .from('org_memberships')
       .insert({
-        org_id,
+        org_id: targetOrgId,
         user_id: existingUser.id,
         role,
       });
@@ -219,7 +221,7 @@ export async function inviteMemberAction(
         status: 'accepted',
         invited_user_id: existingUser.id,
       })
-      .eq('org_id', org_id)
+      .eq('org_id', targetOrgId)
       .eq('email', emailLower)
       .eq('status', 'pending');
 
@@ -251,7 +253,7 @@ export async function inviteMemberAction(
       redirectTo,
       data: {
         role,
-        org_id,
+        org_id: targetOrgId,
       },
     });
     if (inviteResult.error) {
@@ -265,7 +267,7 @@ export async function inviteMemberAction(
     const { error: inviteRecordError } = await (adminClient as any)
       .from('client_invites')
       .insert({
-        org_id,
+        org_id: targetOrgId,
         email: emailLower,
         inviter_id: userData.user.id,
         role,
@@ -286,7 +288,7 @@ export async function inviteMemberAction(
         .insert({
           user_id: newUserId,
           role,
-          org_id,
+          org_id: targetOrgId,
         });
 
       if (profileError) {
@@ -297,7 +299,7 @@ export async function inviteMemberAction(
       const { error: membershipError } = await (adminClient as any)
         .from('org_memberships')
         .insert({
-          org_id,
+          org_id: targetOrgId,
           user_id: newUserId,
           role,
         });
@@ -309,7 +311,7 @@ export async function inviteMemberAction(
       const { error: inviteUserIdUpdateError } = await (adminClient as any)
         .from('client_invites')
         .update({ invited_user_id: newUserId })
-        .eq('org_id', org_id)
+        .eq('org_id', targetOrgId)
         .eq('email', emailLower)
         .eq('status', 'pending');
 
