@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseActionClient, createSupabaseAdminClient, getSupabaseServiceRoleKey, getSupabaseUrl } from '@/lib/supabase/server';
+import type { Database } from '@/types/database';
 
 export async function POST(request: Request) {
   try {
@@ -59,13 +60,16 @@ export async function POST(request: Request) {
 
     const adminClient = createSupabaseAdminClient(serviceRoleKey, supabaseUrl);
 
-    // Create organization
+    // Create organization with explicit type
+    type OrgInsert = Database['public']['Tables']['organizations']['Insert'];
+    const orgData: OrgInsert = {
+      name: org_name,
+      slug: org_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    };
+
     const { data: org, error: orgError } = await adminClient
       .from('organizations')
-      .insert({
-        name: org_name,
-        slug: org_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      })
+      .insert(orgData)
       .select('id')
       .single();
 
@@ -88,20 +92,24 @@ export async function POST(request: Request) {
     }
 
     // Create org membership
+    type MembershipInsert = Database['public']['Tables']['org_memberships']['Insert'];
+    const membershipData: MembershipInsert = {
+      org_id: org.id,
+      user_id: user.id,
+      role: 'client_admin',
+    };
+
     const { error: membershipError } = await adminClient
       .from('org_memberships')
-      .insert({
-        org_id: org.id,
-        user_id: user.id,
-        role: 'client_admin',
-      });
+      .insert(membershipData);
 
     if (membershipError) {
       console.error('Failed to create org membership:', membershipError);
     }
 
     // Create courses
-    const coursesToInsert = courses.map((courseName: string) => ({
+    type CourseInsert = Database['public']['Tables']['courses']['Insert'];
+    const coursesToInsert: CourseInsert[] = courses.map((courseName: string) => ({
       org_id: org.id,
       name: courseName,
       timezone: 'America/Chicago',
