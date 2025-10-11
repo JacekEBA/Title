@@ -36,6 +36,8 @@ export async function createPromoAction(formData: FormData) {
     description: formData.get('description') as string | null,
     scheduled_at: formData.get('scheduled_at') as string,
     timezone: formData.get('timezone') as string,
+    send_window_start: (formData.get('send_window_start') as string) || null,
+    send_window_end: (formData.get('send_window_end') as string) || null,
     drip_enabled: formData.get('drip_enabled') === 'true',
     drip_batch_size: parseInt(formData.get('drip_batch_size') as string || '10'),
     drip_interval_minutes: parseInt(formData.get('drip_interval_minutes') as string || '5'),
@@ -43,6 +45,11 @@ export async function createPromoAction(formData: FormData) {
 
   if (!input.org_id || !input.course_id || !input.template_id || !input.name || !input.scheduled_at) {
     throw new Error('Missing required fields');
+  }
+
+  // Validate send window
+  if ((input.send_window_start && !input.send_window_end) || (!input.send_window_start && input.send_window_end)) {
+    throw new Error('Both start and end times must be set for send window, or leave both blank');
   }
 
   // Validate drip settings
@@ -101,6 +108,18 @@ export async function createPromoAction(formData: FormData) {
   const scheduledAt = scheduledDate.toISOString();
 
   try {
+    // Update course send window if provided
+    if (input.send_window_start && input.send_window_end) {
+      await supabase
+        .from('courses')
+        .update({
+          send_window_start: input.send_window_start,
+          send_window_end: input.send_window_end,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', input.course_id);
+    }
+
     // Create campaign with drip settings
     const campaignData = {
       org_id: input.org_id,
@@ -193,6 +212,8 @@ export async function updateEventAction(data: {
   orgId: string;
   courseId: string;
   templateId: string;
+  sendWindowStart?: string | null;
+  sendWindowEnd?: string | null;
   dripEnabled?: boolean;
   dripBatchSize?: number;
   dripIntervalMinutes?: number;
@@ -220,7 +241,24 @@ export async function updateEventAction(data: {
     throw new Error('Unauthorized: Only agency users can update campaigns');
   }
 
+  // Validate send window
+  if ((data.sendWindowStart && !data.sendWindowEnd) || (!data.sendWindowStart && data.sendWindowEnd)) {
+    throw new Error('Both start and end times must be set for send window, or leave both blank');
+  }
+
   try {
+    // Update course send window if provided
+    if (data.sendWindowStart && data.sendWindowEnd) {
+      await supabase
+        .from('courses')
+        .update({
+          send_window_start: data.sendWindowStart,
+          send_window_end: data.sendWindowEnd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', data.courseId);
+    }
+
     // Update campaign
     const campaignUpdate: any = {
       name: data.name.trim(),
