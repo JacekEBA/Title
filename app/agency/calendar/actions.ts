@@ -1,77 +1,72 @@
-// @ts-nocheck
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { createSupabaseActionClient } from '@/lib/supabase/server';
 
-type CreatePromoInput = {
-  org_id: string;
-  course_id: string;
-  template_id: string;
-  name: string;
-  description: string | null;
-  scheduled_at: string;
-  timezone: string;
-};
-
-function parseCreatePromoInput(input: CreatePromoInput | FormData): CreatePromoInput {
-  if (input instanceof FormData) {
-    return {
-      org_id: String(input.get('org_id') ?? ''),
-      course_id: String(input.get('course_id') ?? ''),
-      template_id: String(input.get('template_id') ?? ''),
-      name: String(input.get('name') ?? ''),
-      description: input.get('description')
-        ? String(input.get('description'))
-        : null,
-      scheduled_at: String(input.get('scheduled_at') ?? ''),
-      timezone: String(input.get('timezone') ?? ''),
-    };
-  }
-
-  return input;
-}
-
-export async function createPromoAction(rawInput: CreatePromoInput | FormData) {
-  const input = parseCreatePromoInput(rawInput);
-
-  if (!input.org_id) {
-    throw new Error('Organization is required.');
-  }
-  if (!input.course_id) {
-    throw new Error('Course is required.');
-  }
-  if (!input.template_id) {
-    throw new Error('Template is required.');
-  }
-  if (!input.name?.trim()) {
-    throw new Error('Campaign name is required.');
-  }
-  if (!input.scheduled_at) {
-    throw new Error('Scheduled time is required.');
-  }
-
-  // Validate ISO timestamp
-  const scheduledDate = new Date(input.scheduled_at);
-  if (isNaN(scheduledDate.getTime())) {
-    throw new Error('Invalid scheduled time format.');
-  }
-
+export async function createPromoAction(formData: FormData) {
   const supabase = createSupabaseActionClient();
 
-  const [{ data: course, error: courseError }, { data: template, error: templateError }] =
-    await Promise.all([
-      supabase
-        .from('courses')
-        .select('id, org_id, timezone')
-        .eq('id', input.course_id)
-        .maybeSingle(),
-      supabase
-        .from('rcs_templates')
-        .select('id, org_id')
-        .eq('id', input.template_id)
-        .maybeSingle(),
-    ]);
+  // Verify authentication
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is owner or agency_staff
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!profile || (profile.role !== 'owner' && profile.role !== 'agency_staff')) {
+    throw new Error('Unauthorized: Only agency users can create campaigns');
+  }
+
+  // Parse form data
+  const input = {
+    org_id: formData.get('org_id') as string,
+    course_id: formData.get('course_id') as string,
+    template_id: formData.get('template_id') as string,
+    name: formData.get('name') as string,
+    description: formData.get('description') as string | null,
+    scheduled_at: formData.get('scheduled_at') as string,
+    timezone: formData.get('timezone') as string,
+    drip_enabled: formData.get('drip_enabled') === 'true',
+    drip_batch_size: parseInt(formData.get('drip_batch_size') as string || '10'),
+    drip_interval_minutes: parseInt(formData.get('drip_interval_minutes') as string || '5'),
+  };
+
+  if (!input.org_id || !input.course_id || !input.template_id || !input.name || !input.scheduled_at) {
+    throw new Error('Missing required fields');
+  }
+
+  // Validate drip settings
+  if (input.drip_enabled) {
+    if (input.drip_batch_size < 1 || input.drip_batch_size > 1000) {
+      throw new Error('Batch size must be between 1 and 1000');
+    }
+    if (input.drip_interval_minutes < 1 || input.drip_interval_minutes > 1440) {
+      throw new Error('Interval must be between 1 and 1440 minutes');
+    }
+  }
+
+  // Parse and validate the scheduled date
+  const scheduledDate = new Date(input.scheduled_at);
+  if (isNaN(scheduledDate.getTime())) {
+    throw new Error('Invalid scheduled date');
+  }
+
+  // Verify course exists and belongs to org
+  const { data: course, error: courseError } = await supabase
+    .from('courses')
+    .select('org_id, timezone')
+    .eq('id', input.course_id)
+    .single();
 
   if (courseError) {
     console.error('Error loading course for promo:', courseError);
@@ -83,6 +78,13 @@ export async function createPromoAction(rawInput: CreatePromoInput | FormData) {
   if (course.org_id !== input.org_id) {
     throw new Error('Selected course does not belong to the chosen organization.');
   }
+
+  // Verify template exists and belongs to org
+  const { data: template, error: templateError } = await supabase
+    .from('rcs_templates')
+    .select('org_id')
+    .eq('id', input.template_id)
+    .single();
 
   if (templateError) {
     console.error('Error loading template for promo:', templateError);
@@ -99,7 +101,7 @@ export async function createPromoAction(rawInput: CreatePromoInput | FormData) {
   const scheduledAt = scheduledDate.toISOString();
 
   try {
-    // Create campaign
+    // Create campaign with drip settings
     const campaignData = {
       org_id: input.org_id,
       course_id: input.course_id,
@@ -109,6 +111,9 @@ export async function createPromoAction(rawInput: CreatePromoInput | FormData) {
       audience_kind: 'all_contacts' as const,
       scheduled_at: scheduledAt,
       timezone,
+      drip_enabled: input.drip_enabled,
+      drip_batch_size: input.drip_enabled ? input.drip_batch_size : null,
+      drip_interval_minutes: input.drip_enabled ? input.drip_interval_minutes : null,
     };
 
     const { data: campaign, error: campaignError } = await supabase
@@ -140,15 +145,12 @@ export async function createPromoAction(rawInput: CreatePromoInput | FormData) {
       end_time: scheduledAt,
     };
 
-    // @ts-ignore
     const { error: eventError } = await supabase
       .from('calendar_events')
-      // @ts-ignore
       .insert([eventData]);
 
     if (eventError) {
       console.error('Calendar event creation error:', eventError);
-      // @ts-ignore
       await supabase.from('campaigns').delete().eq('id', (campaign as { id: string }).id);
       throw new Error(
         eventError.message || 'Failed to create calendar event'
@@ -161,34 +163,27 @@ export async function createPromoAction(rawInput: CreatePromoInput | FormData) {
       run_at: scheduledAt,
     };
 
-    // @ts-ignore
     const { error: jobError } = await supabase
       .from('send_jobs')
-      // @ts-ignore
       .insert([jobData]);
 
     if (jobError) {
       console.error('Send job creation error:', jobError);
-      // Attempt to clean up
+      // Attempt to cleanup
+      await supabase.from('calendar_events').delete().eq('campaign_id', (campaign as { id: string }).id);
       await supabase.from('campaigns').delete().eq('id', (campaign as { id: string }).id);
-      await supabase
-        .from('calendar_events')
-        .delete()
-        .eq('campaign_id', campaign.id);
-      throw new Error(jobError.message || 'Failed to schedule send job');
+      throw new Error(jobError.message || 'Failed to create send job');
     }
 
-    // Revalidate the calendar page
     revalidatePath('/agency/calendar');
-
-    return { success: true, campaign_id: (campaign as { id: string }).id };
+    return { success: true, campaignId: (campaign as { id: string }).id };
   } catch (error) {
-    console.error('Create promo action error:', error);
+    console.error('Error in createPromoAction:', error);
     throw error;
   }
 }
 
-type UpdateEventInput = {
+export async function updateEventAction(data: {
   eventId: string;
   campaignId: string;
   name: string;
@@ -198,109 +193,100 @@ type UpdateEventInput = {
   orgId: string;
   courseId: string;
   templateId: string;
-};
-
-export async function updateEventAction(input: UpdateEventInput) {
+  dripEnabled?: boolean;
+  dripBatchSize?: number;
+  dripIntervalMinutes?: number;
+}) {
   const supabase = createSupabaseActionClient();
 
-  const scheduledDate = new Date(input.scheduledAt);
-  if (isNaN(scheduledDate.getTime())) {
-    throw new Error('Invalid scheduled time format.');
+  // Verify authentication
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error('Not authenticated');
   }
 
-  const [{ data: course, error: courseError }, { data: template, error: templateError }] =
-    await Promise.all([
-      supabase
-        .from('courses')
-        .select('id, org_id, timezone')
-        .eq('id', input.courseId)
-        .maybeSingle(),
-      supabase
-        .from('rcs_templates')
-        .select('id, org_id')
-        .eq('id', input.templateId)
-        .maybeSingle(),
-    ]);
+  // Verify user is owner or agency_staff
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single();
 
-  if (courseError) {
-    console.error('Failed to load course for update:', courseError);
-    throw new Error('Could not load course details.');
+  if (!profile || (profile.role !== 'owner' && profile.role !== 'agency_staff')) {
+    throw new Error('Unauthorized: Only agency users can update campaigns');
   }
-  if (!course) {
-    throw new Error('Course not found.');
-  }
-  if (course.org_id !== input.orgId) {
-    throw new Error('Selected course does not belong to the chosen organization.');
-  }
-
-  if (templateError) {
-    console.error('Failed to load template for update:', templateError);
-    throw new Error('Could not load template details.');
-  }
-  if (!template) {
-    throw new Error('Template not found.');
-  }
-  if (template.org_id !== input.orgId) {
-    throw new Error('Selected template does not belong to the chosen organization.');
-  }
-
-  const timezone = (course.timezone ?? '').trim() || (input.timezone ?? '').trim() || 'UTC';
-  const scheduledAt = scheduledDate.toISOString();
 
   try {
-    // @ts-ignore
+    // Update campaign
+    const campaignUpdate: any = {
+      name: data.name.trim(),
+      description: data.description?.trim() || null,
+      scheduled_at: data.scheduledAt,
+      timezone: data.timezone,
+      org_id: data.orgId,
+      course_id: data.courseId,
+      template_id: data.templateId,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Add drip settings if provided
+    if (data.dripEnabled !== undefined) {
+      campaignUpdate.drip_enabled = data.dripEnabled;
+      if (data.dripEnabled) {
+        campaignUpdate.drip_batch_size = data.dripBatchSize || 10;
+        campaignUpdate.drip_interval_minutes = data.dripIntervalMinutes || 5;
+      }
+    }
+
     const { error: campaignError } = await supabase
       .from('campaigns')
-      // @ts-ignore
-      .update({
-        name: input.name,
-        description: input.description,
-        scheduled_at: scheduledAt,
-        timezone,
-        org_id: input.orgId,
-        course_id: input.courseId,
-        template_id: input.templateId,
-      })
-      .eq('id', input.campaignId);
+      .update(campaignUpdate)
+      .eq('id', data.campaignId);
 
     if (campaignError) {
       throw new Error('Failed to update campaign');
     }
 
-    // @ts-ignore
+    // Update calendar event
     const { error: eventError } = await supabase
       .from('calendar_events')
-      // @ts-ignore
       .update({
-        title: input.name,
-        description: input.description,
-        start_time: scheduledAt,
-        end_time: scheduledAt,
-        org_id: input.orgId,
-        course_id: input.courseId,
+        title: data.name.trim(),
+        description: data.description?.trim() || null,
+        start_time: data.scheduledAt,
+        end_time: data.scheduledAt,
+        org_id: data.orgId,
+        course_id: data.courseId,
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', input.eventId);
+      .eq('id', data.eventId);
 
     if (eventError) {
       throw new Error('Failed to update calendar event');
     }
 
-    // @ts-ignore
+    // Update send job
     const { error: jobError } = await supabase
       .from('send_jobs')
-      // @ts-ignore
-      .update({ run_at: scheduledAt })
-      .eq('campaign_id', input.campaignId)
+      .update({
+        run_at: data.scheduledAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('campaign_id', data.campaignId)
       .eq('status', 'pending');
 
     if (jobError) {
-      throw new Error('Failed to update send job');
+      console.warn('Failed to update send job:', jobError);
     }
 
     revalidatePath('/agency/calendar');
     return { success: true };
   } catch (error) {
-    console.error('Update event error:', error);
+    console.error('Error in updateEventAction:', error);
     throw error;
   }
 }
@@ -308,22 +294,42 @@ export async function updateEventAction(input: UpdateEventInput) {
 export async function cancelEventAction(eventId: string) {
   const supabase = createSupabaseActionClient();
 
+  // Verify authentication
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify user is owner or agency_staff
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!profile || (profile.role !== 'owner' && profile.role !== 'agency_staff')) {
+    throw new Error('Unauthorized: Only agency users can cancel campaigns');
+  }
+
   try {
-    // Get the campaign_id from the calendar event
-    const { data: event, error: fetchError } = await supabase
+    // Get the event to find the campaign
+    const { data: event } = await supabase
       .from('calendar_events')
       .select('campaign_id')
       .eq('id', eventId)
       .single();
 
-    if (fetchError || !event?.campaign_id) {
-      throw new Error('Event not found');
+    if (!event?.campaign_id) {
+      throw new Error('Event or campaign not found');
     }
 
-    // @ts-ignore
+    // Update campaign status
     const { error: campaignError } = await supabase
       .from('campaigns')
-      // @ts-ignore
       .update({ status: 'cancelled' })
       .eq('id', event.campaign_id);
 
@@ -331,34 +337,31 @@ export async function cancelEventAction(eventId: string) {
       throw new Error('Failed to cancel campaign');
     }
 
-    // @ts-ignore
+    // Update calendar event
     const { error: eventError } = await supabase
       .from('calendar_events')
-      // @ts-ignore
       .update({ event_status: 'cancelled' })
       .eq('id', eventId);
 
     if (eventError) {
-      throw new Error('Failed to cancel calendar event');
+      throw new Error('Failed to update calendar event');
     }
 
-    // @ts-ignore
+    // Cancel pending send jobs
     const { error: jobError } = await supabase
       .from('send_jobs')
-      // @ts-ignore
-      .update({ status: 'failed', last_error: 'Cancelled by user' })
+      .update({ status: 'cancelled' })
       .eq('campaign_id', event.campaign_id)
       .eq('status', 'pending');
 
     if (jobError) {
-      console.error('Failed to cancel send job:', jobError);
-      // Don't throw - the campaign is already cancelled
+      console.warn('Failed to cancel send jobs:', jobError);
     }
 
     revalidatePath('/agency/calendar');
     return { success: true };
   } catch (error) {
-    console.error('Cancel event error:', error);
+    console.error('Error in cancelEventAction:', error);
     throw error;
   }
 }
