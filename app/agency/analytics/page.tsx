@@ -35,7 +35,7 @@ export default async function AnalyticsPage() {
 
       <div className="space-y-6">
         <div className="card">
-          <h2 className="section-title mb-4">Delivered Messages</h2>
+          <h2 className="mb-4 section-title">Delivered Messages</h2>
           <LineChart
             labels={labels}
             series={delivered}
@@ -44,17 +44,17 @@ export default async function AnalyticsPage() {
         </div>
 
         <div className="card">
-          <h2 className="section-title mb-4">Replies</h2>
+          <h2 className="mb-4 section-title">Replies</h2>
           <LineChart labels={labels} series={replies} label="Replies" />
         </div>
 
         <div className="card">
-          <h2 className="section-title mb-4">Reads</h2>
+          <h2 className="mb-4 section-title">Reads</h2>
           <LineChart labels={labels} series={reads} label="Reads" />
         </div>
 
         <div className="card">
-          <h2 className="section-title mb-4">Clicks</h2>
+          <h2 className="mb-4 section-title">Clicks</h2>
           <LineChart labels={labels} series={clicks} label="Clicks" />
         </div>
       </div>
