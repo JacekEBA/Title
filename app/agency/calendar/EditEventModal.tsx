@@ -16,6 +16,9 @@ type EventDetails = {
   templateName: string;
   timezone: string;
   status: string;
+  dripEnabled?: boolean;
+  dripBatchSize?: number;
+  dripIntervalMinutes?: number;
 };
 
 type CourseOption = {
@@ -50,6 +53,9 @@ type EditEventModalProps = {
     orgId: string;
     courseId: string;
     templateId: string;
+    dripEnabled?: boolean;
+    dripBatchSize?: number;
+    dripIntervalMinutes?: number;
   }) => Promise<void>;
   onCancel: (eventId: string) => Promise<void>;
 };
@@ -73,6 +79,11 @@ export default function EditEventModal({
   const [courseId, setCourseId] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [timezone, setTimezone] = useState('');
+  
+  // Drip settings
+  const [dripEnabled, setDripEnabled] = useState(false);
+  const [dripBatchSize, setDripBatchSize] = useState('10');
+  const [dripIntervalMinutes, setDripIntervalMinutes] = useState('5');
 
   // Get courses and templates for selected org
   const courses = orgId ? (courseOptionsByOrg[orgId] ?? []) : [];
@@ -86,6 +97,9 @@ export default function EditEventModal({
       setCourseId(event.courseId);
       setTemplateId(event.templateId);
       setTimezone(event.timezone);
+      setDripEnabled(event.dripEnabled ?? false);
+      setDripBatchSize((event.dripBatchSize ?? 10).toString());
+      setDripIntervalMinutes((event.dripIntervalMinutes ?? 5).toString());
       
       // Convert ISO to datetime-local format
       const date = new Date(event.scheduledAt);
@@ -138,6 +152,9 @@ export default function EditEventModal({
         orgId,
         courseId,
         templateId,
+        dripEnabled,
+        dripBatchSize: dripEnabled ? parseInt(dripBatchSize) : undefined,
+        dripIntervalMinutes: dripEnabled ? parseInt(dripIntervalMinutes) : undefined,
       });
       
       onClose();
@@ -304,6 +321,67 @@ export default function EditEventModal({
               />
             </label>
 
+            {/* Drip Campaign Settings */}
+            <div className="border-t border-border pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <input
+                  type="checkbox"
+                  id="dripEnabled"
+                  checked={dripEnabled}
+                  onChange={(e) => setDripEnabled(e.target.checked)}
+                  className="w-4 h-4"
+                  disabled={loading}
+                />
+                <label htmlFor="dripEnabled" className="text-sm font-medium cursor-pointer">
+                  Enable Drip Campaign (send gradually)
+                </label>
+              </div>
+
+              {dripEnabled && (
+                <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-muted rounded-md">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium block">Contacts per Batch</label>
+                    <input
+                      type="number"
+                      value={dripBatchSize}
+                      onChange={(e) => setDripBatchSize(e.target.value)}
+                      className="input"
+                      min="1"
+                      max="1000"
+                      required
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      How many contacts to message at once
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium block">Minutes Between Batches</label>
+                    <input
+                      type="number"
+                      value={dripIntervalMinutes}
+                      onChange={(e) => setDripIntervalMinutes(e.target.value)}
+                      className="input"
+                      min="1"
+                      max="1440"
+                      required
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Wait time before sending next batch
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {dripEnabled && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  💡 Messages will be sent in batches of {dripBatchSize} every {dripIntervalMinutes} minutes
+                </p>
+              )}
+            </div>
+
             {/* Actions */}
             <div className="flex justify-between gap-2 pt-4 border-t border-border">
               <button
@@ -328,44 +406,56 @@ export default function EditEventModal({
                   disabled={loading}
                   className="btn-primary"
                 >
-                  {loading ? 'Saving...' : 'Save Changes'}
+                  {loading ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </div>
           </form>
         ) : (
-          // Read-only view for completed/cancelled campaigns
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <h3 className="font-semibold text-lg mb-1">{event.title}</h3>
-              {event.description && (
-                <p className="text-sm text-muted-foreground mb-3">
-                  {event.description}
-                </p>
-              )}
+              <span className="text-sm font-medium text-muted-foreground">Organization:</span>
+              <p>{event.orgName}</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Organization:</span>
-                <p className="font-medium">{event.orgName}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Course:</span>
-                <p className="font-medium">{event.courseName}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Template:</span>
-                <p className="font-medium">{event.templateName}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Status:</span>
-                <p className="font-medium capitalize">{event.status}</p>
-              </div>
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">Course:</span>
+              <p>{event.courseName}</p>
             </div>
-
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">Template:</span>
+              <p>{event.templateName}</p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">Campaign Name:</span>
+              <p>{event.title}</p>
+            </div>
+            {event.description && (
+              <div>
+                <span className="text-sm font-medium text-muted-foreground">Description:</span>
+                <p>{event.description}</p>
+              </div>
+            )}
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">Scheduled:</span>
+              <p>{new Date(event.scheduledAt).toLocaleString()}</p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">Status:</span>
+              <p className="capitalize">{event.status}</p>
+            </div>
+            {event.dripEnabled && (
+              <div className="border-t border-border pt-3 mt-3">
+                <span className="text-sm font-medium text-muted-foreground">Drip Settings:</span>
+                <p className="text-sm">Batch Size: {event.dripBatchSize} contacts</p>
+                <p className="text-sm">Interval: {event.dripIntervalMinutes} minutes</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-4 border-t border-border">
-              <button type="button" className="btn" onClick={onClose}>
+              <button
+                type="button"
+                className="btn"
+                onClick={onClose}
+              >
                 Close
               </button>
             </div>
