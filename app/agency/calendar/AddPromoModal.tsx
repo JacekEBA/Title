@@ -6,6 +6,8 @@ type Course = {
   id: string;
   name: string;
   timezone: string;
+  send_window_start?: string | null;
+  send_window_end?: string | null;
 };
 
 type Template = {
@@ -50,6 +52,10 @@ export default function AddPromoModal({
   const [scheduledAt, setScheduledAt] = useState('');
   const [timezone, setTimezone] = useState('');
   
+  // Send window settings
+  const [sendWindowStart, setSendWindowStart] = useState('');
+  const [sendWindowEnd, setSendWindowEnd] = useState('');
+  
   // Drip settings
   const [dripEnabled, setDripEnabled] = useState(false);
   const [dripBatchSize, setDripBatchSize] = useState('10');
@@ -58,10 +64,14 @@ export default function AddPromoModal({
   const courses = orgId ? (courseOptionsByOrg[orgId] ?? []) : [];
   const templates = orgId ? (templateOptionsByOrg[orgId] ?? []) : [];
 
-  // Update timezone when course changes
+  // Update timezone and send window when course changes
   useEffect(() => {
     const course = courses.find((c) => c.id === courseId);
-    setTimezone(course?.timezone ?? '');
+    if (course) {
+      setTimezone(course.timezone ?? '');
+      setSendWindowStart(course.send_window_start || '');
+      setSendWindowEnd(course.send_window_end || '');
+    }
   }, [courseId, courses]);
 
   const resetForm = () => {
@@ -72,6 +82,8 @@ export default function AddPromoModal({
     setDescription('');
     setScheduledAt('');
     setTimezone('');
+    setSendWindowStart('');
+    setSendWindowEnd('');
     setDripEnabled(false);
     setDripBatchSize('10');
     setDripIntervalMinutes('5');
@@ -111,6 +123,16 @@ export default function AddPromoModal({
       return;
     }
 
+    // Validate send window
+    if (sendWindowStart && !sendWindowEnd) {
+      alert('Please set both start and end times for send window, or leave both blank.');
+      return;
+    }
+    if (!sendWindowStart && sendWindowEnd) {
+      alert('Please set both start and end times for send window, or leave both blank.');
+      return;
+    }
+
     setLoading(true);
     try {
       const formData = new FormData();
@@ -121,6 +143,10 @@ export default function AddPromoModal({
       formData.set('description', description);
       formData.set('scheduled_at', scheduledAt);
       formData.set('timezone', timezone);
+      
+      // Add send window settings
+      formData.set('send_window_start', sendWindowStart || '');
+      formData.set('send_window_end', sendWindowEnd || '');
       
       // Add drip settings
       formData.set('drip_enabled', dripEnabled.toString());
@@ -161,10 +187,10 @@ export default function AddPromoModal({
       {open && (
         <div className="modal-overlay" onClick={handleClose}>
           <div
-            className="modal max-w-2xl"
+            className="modal max-w-3xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 sticky top-0 bg-background pb-4 border-b border-border">
               <h2 className="section-title mb-0">Schedule RCS Promo</h2>
               <button
                 type="button"
@@ -177,6 +203,7 @@ export default function AddPromoModal({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Organization */}
               <Field label="Organization">
                 <select
                   value={orgId}
@@ -194,6 +221,7 @@ export default function AddPromoModal({
                 </select>
               </Field>
 
+              {/* Course */}
               <Field label="Course (required)">
                 <select
                   value={courseId}
@@ -213,6 +241,7 @@ export default function AddPromoModal({
                 </select>
               </Field>
 
+              {/* Template */}
               <Field label="Template">
                 <select
                   value={templateId}
@@ -234,6 +263,7 @@ export default function AddPromoModal({
                 </select>
               </Field>
 
+              {/* Campaign Name */}
               <Field label="Campaign Name">
                 <input
                   value={name}
@@ -245,6 +275,7 @@ export default function AddPromoModal({
                 />
               </Field>
 
+              {/* Description */}
               <Field label="Description (optional)">
                 <textarea
                   value={description}
@@ -256,6 +287,7 @@ export default function AddPromoModal({
                 />
               </Field>
 
+              {/* Scheduled Time */}
               <Field label="Scheduled Time">
                 <input
                   type="datetime-local"
@@ -267,6 +299,7 @@ export default function AddPromoModal({
                 />
               </Field>
 
+              {/* Timezone */}
               <Field label="Timezone (auto from Course)">
                 <input
                   name="timezone"
@@ -278,8 +311,50 @@ export default function AddPromoModal({
                 />
               </Field>
 
+              {/* Send Window Settings */}
+              <div className="border border-border rounded-lg p-4 bg-muted/30">
+                <h3 className="text-sm font-semibold mb-2">⏰ Send Window (Optional)</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Restrict when messages can be sent. Messages scheduled outside this window will wait until the next available time.
+                </p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Start Time">
+                    <input
+                      type="time"
+                      value={sendWindowStart}
+                      onChange={(e) => setSendWindowStart(e.target.value)}
+                      className="input"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      e.g., 09:00 (9 AM)
+                    </p>
+                  </Field>
+
+                  <Field label="End Time">
+                    <input
+                      type="time"
+                      value={sendWindowEnd}
+                      onChange={(e) => setSendWindowEnd(e.target.value)}
+                      className="input"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      e.g., 20:00 (8 PM)
+                    </p>
+                  </Field>
+                </div>
+
+                {sendWindowStart && sendWindowEnd && (
+                  <p className="text-xs text-green-600 mt-3">
+                    ✓ Messages will only be sent between {sendWindowStart} and {sendWindowEnd} ({timezone})
+                  </p>
+                )}
+              </div>
+
               {/* Drip Campaign Settings */}
-              <div className="border-t border-border pt-4">
+              <div className="border border-border rounded-lg p-4 bg-muted/30">
                 <div className="flex items-center gap-2 mb-3">
                   <input
                     type="checkbox"
@@ -289,13 +364,13 @@ export default function AddPromoModal({
                     className="w-4 h-4"
                     disabled={loading}
                   />
-                  <label htmlFor="dripEnabled" className="text-sm font-medium cursor-pointer">
-                    Enable Drip Campaign (send gradually)
+                  <label htmlFor="dripEnabled" className="text-sm font-semibold cursor-pointer">
+                    💧 Enable Drip Campaign (send gradually)
                   </label>
                 </div>
 
                 {dripEnabled && (
-                  <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-muted rounded-md">
+                  <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-background rounded-md">
                     <Field label="Contacts per Batch">
                       <input
                         type="number"
@@ -337,7 +412,8 @@ export default function AddPromoModal({
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t border-border sticky bottom-0 bg-background">
                 <button
                   type="button"
                   className="btn"
