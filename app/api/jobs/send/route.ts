@@ -15,6 +15,9 @@ type SendJob = {
   id: string;
   campaign_id: string;
   attempts: number;
+  batch_number?: number;
+  processed_contacts?: number;
+  total_contacts?: number;
 };
 
 type Campaign = {
@@ -25,6 +28,14 @@ type Campaign = {
   audience_kind: string;
   audience_ref: string | null;
   name: string;
+  drip_enabled?: boolean;
+  drip_batch_size?: number;
+  drip_interval_minutes?: number;
+  courses?: {
+    send_window_start?: string;
+    send_window_end?: string;
+    timezone?: string;
+  };
 };
 
 type Contact = {
@@ -57,7 +68,7 @@ export async function GET() {
       .lte('run_at', nowIso)
       .eq('status', 'pending')
       .is('locked_at', null)
-      .select('id, campaign_id, attempts')
+      .select('id, campaign_id, attempts, batch_number, processed_contacts, total_contacts')
       .order('run_at', { ascending: true })
       .limit(3);
 
@@ -100,12 +111,14 @@ export async function GET() {
 async function processSendJob(admin: any, job: SendJob): Promise<void> {
   console.log(`Processing job ${job.id}...`);
 
-  // Get campaign details
+  // Get campaign details with course info for send window
   const { data: campaign, error: campaignError } = await admin
     .from('campaigns')
-    .select(
-      'id, org_id, course_id, template_id, audience_kind, audience_ref, name'
-    )
+    .select(`
+      id, org_id, course_id, template_id, audience_kind, audience_ref, name,
+      drip_enabled, drip_batch_size, drip_interval_minutes,
+      courses (send_window_start, send_window_end, timezone)
+    `)
     .eq('id', job.campaign_id)
     .single();
 
@@ -114,6 +127,59 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
   }
 
   const typedCampaign = campaign as Campaign;
+
+  // Check if we're within send window
+  const now = new Date();
+  const course = typedCampaign.courses;
+  
+  if (course?.send_window_start && course?.send_window_end) {
+    const timezone = course.timezone || 'America/New_York';
+    
+    // Get current time in course timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const localTime = formatter.format(now);
+    const [currentHour, currentMinute] = localTime.split(':').map(Number);
+
+    // Parse send window times
+    const [startHour, startMinute] = course.send_window_start.split(':').map(Number);
+    const [endHour, endMinute] = course.send_window_end.split(':').map(Number);
+
+    // Convert to minutes for comparison
+    const currentMinutes = currentHour * 60 + currentMinute;
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+
+    if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+      console.log(`Outside send window (${course.send_window_start}-${course.send_window_end}). Rescheduling...`);
+      
+      // Calculate next available send time
+      const nextRun = new Date(now);
+      nextRun.setHours(startHour, startMinute, 0, 0);
+      
+      // If the calculated time is in the past, schedule for tomorrow
+      if (nextRun <= now) {
+        nextRun.setDate(nextRun.getDate() + 1);
+      }
+
+      await admin
+        .from('send_jobs')
+        .update({
+          status: 'pending',
+          run_at: nextRun.toISOString(),
+          locked_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+
+      console.log(`Rescheduled for ${nextRun.toISOString()}`);
+      return;
+    }
+  }
 
   // Get template
   const { data: template, error: templateError } = await admin
@@ -130,42 +196,10 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
   const hasFallback = template?.fallback_sms_enabled ?? false;
   const fallbackText = template?.fallback_text ?? '';
 
-  // Get contacts based on audience
-  let contacts: Contact[] = [];
-  
-  if (typedCampaign.audience_kind === 'all_contacts') {
-    // All contacts for this course
-    const { data, error } = await admin
-      .from('contacts')
-      .select('id, phone')
-      .eq('course_id', typedCampaign.course_id)
-      .eq('consent', 'opted_in')
-      .is('opted_out_at', null)
-      .is('deleted_at', null);
-    
-    if (error) throw error;
-    contacts = data ?? [];
-  } else if (typedCampaign.audience_kind === 'contact_list') {
-    // Specific contact list
-    const { data, error } = await admin
-      .from('contact_list_members')
-      .select('contact_id, contacts(id, phone, consent, opted_out_at, deleted_at)')
-      .eq('list_id', typedCampaign.audience_ref);
-    
-    if (error) throw error;
-    contacts = (data ?? [])
-      .filter((m: any) => 
-        m.contacts?.consent === 'opted_in' &&
-        !m.contacts?.opted_out_at &&
-        !m.contacts?.deleted_at
-      )
-      .map((m: any) => ({
-        id: m.contacts.id,
-        phone: m.contacts.phone,
-      }));
-  }
+  // Get all contacts for this campaign
+  const allContacts = await getContactsForCampaign(admin, typedCampaign);
 
-  if (contacts.length === 0) {
+  if (allContacts.length === 0) {
     console.log(`No contacts found for campaign ${typedCampaign.id}`);
     await admin
       .from('send_jobs')
@@ -177,21 +211,52 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
     return;
   }
 
-  console.log(`Found ${contacts.length} contacts to message`);
+  // DRIP CAMPAIGN LOGIC
+  const isDripEnabled = typedCampaign.drip_enabled ?? false;
+  const batchSize = typedCampaign.drip_batch_size ?? allContacts.length;
+  const intervalMinutes = typedCampaign.drip_interval_minutes ?? 0;
 
-  // STEP 1: Check RCS capability for all contacts
-  const phoneNumbers = contacts.map(c => c.phone);
+  const batchNumber = job.batch_number ?? 0;
+  const processedContacts = job.processed_contacts ?? 0;
+  const totalContacts = job.total_contacts || allContacts.length;
+
+  // Update total contacts on first batch
+  if (batchNumber === 0 && !job.total_contacts) {
+    await admin
+      .from('send_jobs')
+      .update({ total_contacts: allContacts.length })
+      .eq('id', job.id);
+  }
+
+  // Determine which contacts to process in this batch
+  let contactsToProcess: Contact[];
+  
+  if (!isDripEnabled) {
+    // Send all at once
+    contactsToProcess = allContacts;
+    console.log(`Processing all ${allContacts.length} contacts at once`);
+  } else {
+    // Send in batches
+    const startIndex = batchNumber * batchSize;
+    const endIndex = Math.min(startIndex + batchSize, allContacts.length);
+    contactsToProcess = allContacts.slice(startIndex, endIndex);
+    
+    console.log(`Drip batch ${batchNumber + 1}: processing contacts ${startIndex + 1}-${endIndex} of ${allContacts.length}`);
+  }
+
+  // Check RCS capability for contacts in this batch
+  const phoneNumbers = contactsToProcess.map(c => c.phone);
   const rcsCapabilities = await batchCheckRcsCapability(phoneNumbers);
 
   console.log(
-    `RCS capable: ${Array.from(rcsCapabilities.values()).filter(Boolean).length}/${contacts.length}`
+    `RCS capable: ${Array.from(rcsCapabilities.values()).filter(Boolean).length}/${contactsToProcess.length}`
   );
 
-  // STEP 2: Send messages (RCS where supported, SMS fallback where configured)
+  // Send messages
   let successCount = 0;
   let failureCount = 0;
 
-  for (const contact of contacts) {
+  for (const contact of contactsToProcess) {
     try {
       const isRcsCapable = rcsCapabilities.get(contact.phone) ?? false;
       
@@ -199,7 +264,7 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
       let usedFallback = false;
 
       if (isRcsCapable) {
-        // Send RCS message
+        // Try to send RCS message
         try {
           const result = await sendRcsMessage({
             orgId: typedCampaign.org_id,
@@ -271,27 +336,90 @@ async function processSendJob(admin: any, job: SendJob): Promise<void> {
     }
   }
 
+  const newProcessedCount = processedContacts + contactsToProcess.length;
   console.log(
-    `Job ${job.id} complete: ${successCount} sent, ${failureCount} failed`
+    `Batch complete: ${successCount} sent, ${failureCount} failed. Total progress: ${newProcessedCount}/${totalContacts}`
   );
 
-  // Mark campaign as completed
-  await admin
-    .from('campaigns')
-    .update({
-      status: 'completed',
-      send_completed_at: new Date().toISOString(),
-    })
-    .eq('id', typedCampaign.id);
+  // Determine next action
+  const hasMoreContacts = newProcessedCount < totalContacts;
+  
+  if (isDripEnabled && hasMoreContacts) {
+    // Schedule next batch
+    const nextRunTime = new Date(Date.now() + intervalMinutes * 60 * 1000);
+    
+    await admin
+      .from('send_jobs')
+      .update({
+        status: 'pending',
+        batch_number: batchNumber + 1,
+        processed_contacts: newProcessedCount,
+        run_at: nextRunTime.toISOString(),
+        locked_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id);
 
-  // Mark job as completed
-  await admin
-    .from('send_jobs')
-    .update({ 
-      status: 'completed',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', job.id);
+    console.log(`Scheduled next batch for ${nextRunTime.toISOString()}`);
+  } else {
+    // Campaign complete
+    await admin
+      .from('campaigns')
+      .update({
+        status: 'completed',
+        send_completed_at: new Date().toISOString(),
+      })
+      .eq('id', typedCampaign.id);
+
+    await admin
+      .from('send_jobs')
+      .update({ 
+        status: 'completed',
+        processed_contacts: newProcessedCount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', job.id);
+
+    console.log(`Campaign ${typedCampaign.id} completed!`);
+  }
+}
+
+async function getContactsForCampaign(admin: any, campaign: Campaign): Promise<Contact[]> {
+  let contacts: Contact[] = [];
+  
+  if (campaign.audience_kind === 'all_contacts') {
+    // All contacts for this course
+    const { data, error } = await admin
+      .from('contacts')
+      .select('id, phone')
+      .eq('course_id', campaign.course_id)
+      .eq('consent', 'opted_in')
+      .is('opted_out_at', null)
+      .is('deleted_at', null);
+    
+    if (error) throw error;
+    contacts = data ?? [];
+  } else if (campaign.audience_kind === 'contact_list') {
+    // Specific contact list
+    const { data, error } = await admin
+      .from('contact_list_members')
+      .select('contact_id, contacts(id, phone, consent, opted_out_at, deleted_at)')
+      .eq('list_id', campaign.audience_ref);
+    
+    if (error) throw error;
+    contacts = (data ?? [])
+      .filter((m: any) => 
+        m.contacts?.consent === 'opted_in' &&
+        !m.contacts?.opted_out_at &&
+        !m.contacts?.deleted_at
+      )
+      .map((m: any) => ({
+        id: m.contacts.id,
+        phone: m.contacts.phone,
+      }));
+  }
+
+  return contacts;
 }
 
 async function handleJobError(
