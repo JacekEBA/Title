@@ -9,6 +9,10 @@ type PinnacleEvent = {
   event_id?: string;
   type: string;
   brand_id?: string;
+  brand?: {
+    id?: number;
+    status?: string;
+  };
   from?: {
     phone?: string;
   };
@@ -37,6 +41,7 @@ export async function POST(req: NextRequest) {
 
     const event: PinnacleEvent = JSON.parse(rawBody);
     const admin = createSupabaseAdminClient() as any;
+    const now = new Date().toISOString();
 
     // Check for duplicate events
     const externalId =
@@ -63,6 +68,37 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       orgId = integration?.org_id ?? null;
+    }
+
+    // Handle brand verification status changes
+    if ((event.type === 'brand.verified' || event.type === 'brand.failed') && event.brand?.id) {
+      const newStatus = event.type === 'brand.verified' ? 'verified' : 'failed';
+      
+      if (orgId) {
+        // Update org_integrations
+        await admin
+          .from('org_integrations')
+          .update({
+            status: newStatus,
+            updated_at: now,
+          })
+          .eq('org_id', orgId)
+          .eq('brand_id', event.brand.id.toString());
+
+        // Create inbox notification
+        await admin.from('inbox_notifications').insert({
+          org_id: orgId,
+          notification_type: event.type === 'brand.verified' ? 'brand_verified' : 'brand_failed',
+          title: event.type === 'brand.verified' 
+            ? '✅ RCS Brand Verified!' 
+            : '❌ RCS Brand Verification Failed',
+          message: event.type === 'brand.verified'
+            ? 'Your brand has been verified and you can now send RCS messages!'
+            : `Brand verification failed. Reason: ${event.reason || 'Unknown'}`,
+        });
+
+        console.log(`Brand ${event.brand.id} status updated to ${newStatus} for org ${orgId}`);
+      }
     }
 
     // Handle inbound messages - find or create contact
@@ -112,7 +148,7 @@ export async function POST(req: NextRequest) {
           .insert({
             org_id: orgId,
             contact_id: contactId,
-            last_message_at: new Date().toISOString(),
+            last_message_at: now,
             last_direction: 'inbound',
             unread_count: 0,
           })
@@ -126,8 +162,6 @@ export async function POST(req: NextRequest) {
 
     // Process event based on type
     if (orgId) {
-      const now = new Date().toISOString();
-
       // Handle inbound text messages
       if (event.type === 'inbound_text') {
         await admin.from('messages').insert({
@@ -187,12 +221,12 @@ export async function POST(req: NextRequest) {
     await admin.from('webhook_events').insert({
       org_id: orgId,
       course_id: null,
-      event_type: event.type ?? 'inbound_text',
+      event_type: event.type ?? 'unknown',
       external_event_id: externalId,
       pinnacle_message_id: event.message?.id ?? null,
       contact_phone: event.from?.phone ?? null,
       payload: event as any,
-      received_at: new Date().toISOString(),
+      received_at: now,
     });
 
     return NextResponse.json({ ok: true });
