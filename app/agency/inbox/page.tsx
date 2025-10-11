@@ -1,61 +1,267 @@
-import type { Metadata } from 'next';
-import LineChart from '@/components/LineChart';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+// app/agency/inbox/page.tsx
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Analytics',
-};
+import { useState, useEffect } from 'react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { formatDistanceToNow } from 'date-fns';
 
-type MetricRow = {
-  date: string;
-  delivered_like: number | null;
-  replies: number | null;
-  clicks: number | null;
-  reads: number | null;
-};
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+  metadata?: any;
+  created_by?: string;
+}
 
-export default async function AnalyticsPage() {
-  const supabase = createSupabaseServerClient();
-  
-  const { data: rows } = await supabase
-    .from('agency_daily_metrics')
-    .select('date, delivered_like, replies, clicks, reads')
-    .order('date', { ascending: true });
+export default function AgencyInboxPage() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const supabase = createClientComponentClient();
 
-  const metrics = (rows as MetricRow[]) ?? [];
-  const labels = metrics.map((row) => row.date);
-  const delivered = metrics.map((row) => row.delivered_like ?? 0);
-  const replies = metrics.map((row) => row.replies ?? 0);
-  const clicks = metrics.map((row) => row.clicks ?? 0);
-  const reads = metrics.map((row) => row.reads ?? 0);
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('agency-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [filter]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user's org_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('org_id, role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) return;
+
+      // Build query
+      let query = supabase
+        .from('notifications')
+        .select('*')
+        .eq('org_id', profile.org_id)
+        .order('created_at', { ascending: false });
+
+      // Filter for agency staff or admin roles
+      if (profile.role === 'agency_staff' || profile.role === 'owner') {
+        query = query.or('role_target.eq.agency_staff,role_target.eq.all');
+      }
+
+      if (filter === 'unread') {
+        query = query.eq('is_read', false);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('org_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile) return;
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('org_id', profile.org_id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'client_created':
+        return '👥';
+      case 'brand_verified':
+        return '✅';
+      case 'campaign_completed':
+        return '📧';
+      case 'import_completed':
+        return '📊';
+      case 'payment_received':
+        return '💳';
+      case 'system_alert':
+        return '⚠️';
+      default:
+        return '📌';
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="page">
-      <h1 className="page-title">Agency Analytics</h1>
-
-      <div className="space-y-6">
-        <div className="card">
-          <h2 className="section-title mb-4">Delivered Messages</h2>
-          <LineChart
-            labels={labels}
-            series={delivered}
-            label="Delivered-like"
-          />
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Agency Alerts Center
+          </h1>
+          <p className="text-gray-600">
+            System notifications and important updates
+          </p>
         </div>
 
-        <div className="card">
-          <h2 className="section-title mb-4">Replies</h2>
-          <LineChart labels={labels} series={replies} label="Replies" />
+        {/* Controls */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex items-center justify-between">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-4 py-2 rounded-md transition ${
+                filter === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All ({notifications.length})
+            </button>
+            <button
+              onClick={() => setFilter('unread')}
+              className={`px-4 py-2 rounded-md transition ${
+                filter === 'unread'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Unread ({unreadCount})
+            </button>
+          </div>
+
+          <button
+            onClick={markAllAsRead}
+            disabled={unreadCount === 0}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            Mark All as Read
+          </button>
         </div>
 
-        <div className="card">
-          <h2 className="section-title mb-4">Reads</h2>
-          <LineChart labels={labels} series={reads} label="Reads" />
-        </div>
-
-        <div className="card">
-          <h2 className="section-title mb-4">Clicks</h2>
-          <LineChart labels={labels} series={clicks} label="Clicks" />
+        {/* Notifications List */}
+        <div className="space-y-3">
+          {loading ? (
+            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading notifications...</p>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+              <p className="text-gray-500 text-lg">
+                {filter === 'unread' 
+                  ? '🎉 No unread notifications' 
+                  : 'No notifications yet'}
+              </p>
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`bg-white rounded-lg shadow-sm p-4 transition hover:shadow-md ${
+                  !notification.is_read ? 'border-l-4 border-blue-600' : ''
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="text-3xl">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-1">
+                      <h3 className="font-semibold text-gray-900">
+                        {notification.title}
+                      </h3>
+                      <span className="text-sm text-gray-500">
+                        {formatDistanceToNow(new Date(notification.created_at), {
+                          addSuffix: true,
+                        })}
+                      </span>
+                    </div>
+                    
+                    <p className="text-gray-600 mb-2">
+                      {notification.message}
+                    </p>
+                    
+                    {notification.metadata && (
+                      <div className="text-sm text-gray-500 bg-gray-50 rounded p-2 mt-2">
+                        <pre className="text-xs overflow-x-auto">
+                          {JSON.stringify(notification.metadata, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                    
+                    {!notification.is_read && (
+                      <button
+                        onClick={() => markAsRead(notification.id)}
+                        className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Mark as read
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
