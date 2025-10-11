@@ -16,6 +16,8 @@ type EventDetails = {
   templateName: string;
   timezone: string;
   status: string;
+  sendWindowStart?: string | null;
+  sendWindowEnd?: string | null;
   dripEnabled?: boolean;
   dripBatchSize?: number;
   dripIntervalMinutes?: number;
@@ -25,6 +27,8 @@ type CourseOption = {
   id: string;
   name: string;
   timezone: string;
+  send_window_start?: string | null;
+  send_window_end?: string | null;
 };
 
 type TemplateOption = {
@@ -53,6 +57,8 @@ type EditEventModalProps = {
     orgId: string;
     courseId: string;
     templateId: string;
+    sendWindowStart?: string | null;
+    sendWindowEnd?: string | null;
     dripEnabled?: boolean;
     dripBatchSize?: number;
     dripIntervalMinutes?: number;
@@ -80,6 +86,10 @@ export default function EditEventModal({
   const [templateId, setTemplateId] = useState('');
   const [timezone, setTimezone] = useState('');
   
+  // Send window settings
+  const [sendWindowStart, setSendWindowStart] = useState('');
+  const [sendWindowEnd, setSendWindowEnd] = useState('');
+  
   // Drip settings
   const [dripEnabled, setDripEnabled] = useState(false);
   const [dripBatchSize, setDripBatchSize] = useState('10');
@@ -97,6 +107,8 @@ export default function EditEventModal({
       setCourseId(event.courseId);
       setTemplateId(event.templateId);
       setTimezone(event.timezone);
+      setSendWindowStart(event.sendWindowStart || '');
+      setSendWindowEnd(event.sendWindowEnd || '');
       setDripEnabled(event.dripEnabled ?? false);
       setDripBatchSize((event.dripBatchSize ?? 10).toString());
       setDripIntervalMinutes((event.dripIntervalMinutes ?? 5).toString());
@@ -117,6 +129,14 @@ export default function EditEventModal({
       return;
     }
     setTimezone(course.timezone ?? 'UTC');
+    
+    // Load send window from course if not already set
+    if (!sendWindowStart && course.send_window_start) {
+      setSendWindowStart(course.send_window_start);
+    }
+    if (!sendWindowEnd && course.send_window_end) {
+      setSendWindowEnd(course.send_window_end);
+    }
   }, [courseId, courses]);
 
   if (!event) return null;
@@ -137,6 +157,16 @@ export default function EditEventModal({
       return;
     }
 
+    // Validate send window
+    if (sendWindowStart && !sendWindowEnd) {
+      alert('Please set both start and end times for send window, or leave both blank.');
+      return;
+    }
+    if (!sendWindowStart && sendWindowEnd) {
+      alert('Please set both start and end times for send window, or leave both blank.');
+      return;
+    }
+
     setLoading(true);
     try {
       // Convert to ISO
@@ -152,6 +182,8 @@ export default function EditEventModal({
         orgId,
         courseId,
         templateId,
+        sendWindowStart: sendWindowStart || null,
+        sendWindowEnd: sendWindowEnd || null,
         dripEnabled,
         dripBatchSize: dripEnabled ? parseInt(dripBatchSize) : undefined,
         dripIntervalMinutes: dripEnabled ? parseInt(dripIntervalMinutes) : undefined,
@@ -187,8 +219,8 @@ export default function EditEventModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal max-w-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
+      <div className="modal max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 sticky top-0 bg-background pb-4 border-b border-border z-10">
           <h2 className="section-title mb-0">
             {canEdit ? 'Edit Campaign' : 'Campaign Details'}
           </h2>
@@ -321,8 +353,52 @@ export default function EditEventModal({
               />
             </label>
 
+            {/* Send Window Settings */}
+            <div className="border border-border rounded-lg p-4 bg-muted/30">
+              <h3 className="text-sm font-semibold mb-2">⏰ Send Window (Optional)</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Restrict when messages can be sent. Messages scheduled outside this window will wait until the next available time.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium block">Start Time</label>
+                  <input
+                    type="time"
+                    value={sendWindowStart}
+                    onChange={(e) => setSendWindowStart(e.target.value)}
+                    className="input"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    e.g., 09:00 (9 AM)
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium block">End Time</label>
+                  <input
+                    type="time"
+                    value={sendWindowEnd}
+                    onChange={(e) => setSendWindowEnd(e.target.value)}
+                    className="input"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    e.g., 20:00 (8 PM)
+                  </p>
+                </div>
+              </div>
+
+              {sendWindowStart && sendWindowEnd && (
+                <p className="text-xs text-green-600 mt-3">
+                  ✓ Messages will only be sent between {sendWindowStart} and {sendWindowEnd} ({timezone})
+                </p>
+              )}
+            </div>
+
             {/* Drip Campaign Settings */}
-            <div className="border-t border-border pt-4">
+            <div className="border border-border rounded-lg p-4 bg-muted/30">
               <div className="flex items-center gap-2 mb-3">
                 <input
                   type="checkbox"
@@ -332,13 +408,13 @@ export default function EditEventModal({
                   className="w-4 h-4"
                   disabled={loading}
                 />
-                <label htmlFor="dripEnabled" className="text-sm font-medium cursor-pointer">
-                  Enable Drip Campaign (send gradually)
+                <label htmlFor="dripEnabled" className="text-sm font-semibold cursor-pointer">
+                  💧 Enable Drip Campaign (send gradually)
                 </label>
               </div>
 
               {dripEnabled && (
-                <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-muted rounded-md">
+                <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-background rounded-md">
                   <div className="space-y-1">
                     <label className="text-sm font-medium block">Contacts per Batch</label>
                     <input
@@ -443,13 +519,26 @@ export default function EditEventModal({
               <span className="text-sm font-medium text-muted-foreground">Status:</span>
               <p className="capitalize">{event.status}</p>
             </div>
+            
+            {/* Send Window Display */}
+            {(event.sendWindowStart || event.sendWindowEnd) && (
+              <div className="border-t border-border pt-3 mt-3">
+                <span className="text-sm font-medium text-muted-foreground">Send Window:</span>
+                <p className="text-sm">
+                  {event.sendWindowStart} - {event.sendWindowEnd} ({event.timezone})
+                </p>
+              </div>
+            )}
+            
+            {/* Drip Settings Display */}
             {event.dripEnabled && (
               <div className="border-t border-border pt-3 mt-3">
-                <span className="text-sm font-medium text-muted-foreground">Drip Settings:</span>
+                <span className="text-sm font-medium text-muted-foreground">Drip Campaign:</span>
                 <p className="text-sm">Batch Size: {event.dripBatchSize} contacts</p>
                 <p className="text-sm">Interval: {event.dripIntervalMinutes} minutes</p>
               </div>
             )}
+            
             <div className="flex justify-end gap-2 pt-4 border-t border-border">
               <button
                 type="button"
