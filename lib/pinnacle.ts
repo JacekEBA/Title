@@ -184,3 +184,169 @@ export async function batchCheckRcsCapability(
   
   return results;
 }
+
+// lib/pinnacle.ts additions
+
+/**
+ * Create or update a brand for RCS verification
+ */
+export async function createOrUpdateBrand(params: {
+  brandId?: number;
+  orgId: string;
+  name: string;
+  website: string;
+  email: string;
+  ein?: string;
+  address: string;
+  sector: string;
+  type: string;
+  contact: {
+    name: string;
+    email: string;
+    phone: string;
+    title?: string;
+  };
+  dba?: string;
+  description?: string;
+}) {
+  const body: any = {
+    name: params.name,
+    website: params.website,
+    email: params.email,
+    address: params.address,
+    sector: params.sector,
+    type: params.type,
+    contact: params.contact,
+  };
+
+  if (params.brandId) body.id = params.brandId;
+  if (params.ein) body.ein = params.ein;
+  if (params.dba) body.dba = params.dba;
+  if (params.description) body.description = params.description;
+
+  const res = await fetch(`${API_BASE}/brands`, {
+    method: 'POST',
+    headers: {
+      'PINNACLE-API-KEY': process.env.PINNACLE_API_KEY!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Brand upsert failed: ${res.status} ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Submit brand for verification
+ */
+export async function submitBrandForVerification(brandId: number) {
+  const res = await fetch(`${API_BASE}/brands/${brandId}/submit`, {
+    method: 'POST',
+    headers: {
+      'PINNACLE-API-KEY': process.env.PINNACLE_API_KEY!,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Brand submission failed: ${res.status} ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Validate brand information before submission
+ */
+export async function validateBrandInfo(params: {
+  name: string;
+  website: string;
+  email: string;
+  address: string;
+  sector: string;
+  type: string;
+  contact: {
+    name: string;
+    email: string;
+    phone: string;
+    title: string;
+  };
+  ein?: string;
+  dba?: string;
+  description?: string;
+}) {
+  const res = await fetch(`${API_BASE}/brands/validate`, {
+    method: 'POST',
+    headers: {
+      'PINNACLE-API-KEY': process.env.PINNACLE_API_KEY!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Brand validation failed: ${res.status} ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Get brand status from Pinnacle
+ */
+export async function getBrandStatus(brandId: number) {
+  const res = await fetch(`${API_BASE}/status/brand/${brandId}`, {
+    method: 'GET',
+    headers: {
+      'PINNACLE-API-KEY': process.env.PINNACLE_API_KEY!,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Get brand status failed: ${res.status} ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Get phone number status
+ */
+export async function getPhoneNumberStatus(phoneNumber: string) {
+  const encoded = encodeURIComponent(phoneNumber);
+  const res = await fetch(`${API_BASE}/status/phone-number/${encoded}`, {
+    method: 'GET',
+    headers: {
+      'PINNACLE-API-KEY': process.env.PINNACLE_API_KEY!,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Get phone status failed: ${res.status} ${await res.text()}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Get RCS capabilities for multiple phone numbers
+ */
+export async function getRcsCapabilities(phoneNumbers: string[]) {
+  const res = await fetch(`${API_BASE}/rcs/capabilities`, {
+    method: 'POST',
+    headers: {
+      'PINNACLE-API-KEY': process.env.PINNACLE_API_KEY!,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ phoneNumbers }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Get RCS capabilities failed: ${res.status} ${await res.text()}`);
+  }
+
+  return res.json();
+}
