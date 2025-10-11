@@ -1,49 +1,187 @@
-import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { redirect } from 'next/navigation';
+import { cache } from 'react';
+import { createSupabaseServerClient } from './supabase/server';
+import type { Profile, MembershipRole } from './types';
 
-export type ProfileRole = "owner" | "client_admin" | "client_viewer";
+// Type alias for compatibility
+export type UserRole = MembershipRole;
 
-export type ProfileSummary = {
-  fullName: string;
-  role: ProfileRole;
-  organizationId: string | null;
-};
+/**
+ * Get the current session, cached per request
+ */
+export const getSession = cache(async () => {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getSession();
+  
+  if (error) {
+    console.error('Error fetching session:', error);
+    return null;
+  }
+  
+  return data.session;
+});
 
-type RequireProfileResult = {
-  supabase: SupabaseClient;
-  user: {
-    id: string;
-    email?: string;
-  };
-  profile: ProfileSummary;
-};
+/**
+ * Get the current user's profile, cached per request
+ */
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
+  const session = await getSession();
+  if (!session) return null;
 
-export async function requireProfile(): Promise<RequireProfileResult> {
-  const supabase = supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, org_id, role, full_name, timezone, phone')
+    .eq('user_id', session.user.id)
+    .single();
 
-  if (!user) {
-    redirect("/login");
+  if (error) {
+    console.error('Error fetching profile:', error);
+    return null;
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role, organization_id")
-    .eq("user_id", user.id)
+  return data as Profile;
+});
+
+/**
+ * Check if user has global owner or agency_staff role
+ */
+export async function isOwner(): Promise<boolean> {
+  const profile = await getCurrentProfile();
+  return profile?.role === 'owner';
+}
+
+export async function isAgencyUser(): Promise<boolean> {
+  const profile = await getCurrentProfile();
+  return profile?.role === 'owner' || profile?.role === 'agency_staff';
+}
+
+/**
+ * Check if user has access to a specific organization
+ */
+export async function hasOrgAccess(orgId: string): Promise<boolean> {
+  const session = await getSession();
+
+  if (!session) {
+    return false;
+  }
+
+  // Agency users have access to all orgs
+  if (await isAgencyUser()) {
+    return true;
+  }
+
+  // Check if current user has membership in this org
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('org_memberships')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('user_id', session.user.id)
     .maybeSingle();
 
-  const role: ProfileRole = (profile?.role as ProfileRole) ?? "client_viewer";
+  if (error) {
+    console.error('Error checking org access:', error);
+    return false;
+  }
 
-  return {
-    supabase,
-    user,
-    profile: {
-      fullName: profile?.full_name ?? user.email ?? "User",
-      role,
-      organizationId: profile?.organization_id ?? null,
-    },
-  };
+  return !!data;
+}
+
+/**
+ * Require org access or redirect to dashboard
+ */
+export async function requireOrgAccess(orgId: string): Promise<void> {
+  const session = await getSession();
+  
+  if (!session) {
+    redirect('/login');
+  }
+
+  const hasAccess = await hasOrgAccess(orgId);
+  
+  if (!hasAccess) {
+    redirect('/dashboard?error=no_access');
+  }
+}
+
+/**
+ * Require agency role or redirect
+ */
+export async function requireAgencyAccess(): Promise<void> {
+  const session = await getSession();
+  
+  if (!session) {
+    redirect('/login');
+  }
+
+  const isAgency = await isAgencyUser();
+  
+  if (!isAgency) {
+    redirect('/dashboard?error=agency_only');
+  }
+}
+
+/**
+ * Determine where to redirect user based on their role and memberships
+ */
+export async function landingRedirectPath(): Promise<string> {
+  const profile = await getCurrentProfile();
+  
+  // If no profile exists, send to onboarding
+  if (!profile) {
+    return '/onboarding';
+  }
+
+  // Agency users go to agency dashboard
+  if (profile.role === 'owner' || profile.role === 'agency_staff') {
+    return '/agency';
+  }
+
+  // If client has no org yet, send to onboarding
+  if (!profile.org_id) {
+    return '/onboarding';
+  }
+
+  // Get user's org memberships
+  const supabase = createSupabaseServerClient();
+  const { data: memberships } = await supabase
+    .from('org_memberships')
+    .select('org_id')
+    .order('created_at', { ascending: true });
+
+  type OrgMembership = { org_id: string };
+  const typedMemberships = (memberships as OrgMembership[] | null) ?? [];
+
+  // If exactly one org, redirect there
+  if (typedMemberships.length === 1) {
+    return `/org/${typedMemberships[0].org_id}`;
+  }
+
+  // If they have their profile org_id, use that
+  if (profile.org_id) {
+    return `/org/${profile.org_id}`;
+  }
+
+  // Otherwise, show org chooser
+  return '/dashboard';
+}
+
+/**
+ * Require specific role(s)
+ */
+export async function requireRole(allowedRoles: UserRole[]): Promise<Profile> {
+  const session = await getSession();
+  
+  if (!session) {
+    redirect('/login');
+  }
+
+  const profile = await getCurrentProfile();
+  
+  if (!profile || !allowedRoles.includes(profile.role)) {
+    redirect('/dashboard?error=insufficient_permissions');
+  }
+
+  return profile;
 }

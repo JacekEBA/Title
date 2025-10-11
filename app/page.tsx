@@ -1,11 +1,15 @@
-import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { redirect } from 'next/navigation';
+import { getSession, landingRedirectPath } from '../lib/auth';
 
-export default async function Home() {
-  const supabase = supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  redirect(user ? "/dashboard" : "/login");
+export default async function Page() {
+  const session = await getSession();
+  if (!session) {
+    redirect('/login');
+  }
+  const path = await landingRedirectPath();
+  redirect(path);
 }
+
+
+
+

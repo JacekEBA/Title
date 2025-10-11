@@ -14,6 +14,7 @@
   --border: 214 32% 91%;
 }
 
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: 222 47% 7%;
@@ -27,6 +28,7 @@
     --border: 222 47% 16%;
   }
 }
+
 
 body {
   background-color: hsl(var(--background));

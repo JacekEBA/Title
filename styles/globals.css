@@ -1,0 +1,351 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 99%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 20% 45%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 144 61% 96%;
+    --border: 214 32% 91%;
+    --radius: 0.5rem;
+  }
+
+  
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 222 47% 7%;
+      --foreground: 210 40% 98%;
+      --card: 222 47% 9%;
+      --card-foreground: 210 40% 98%;
+      --muted: 222 47% 12%;
+      --muted-foreground: 215 20% 65%;
+      --primary: 160 84% 39%;
+      --primary-foreground: 144 61% 96%;
+      --border: 222 47% 16%;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+
+  button {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  /* Container */
+  .container {
+    @apply mx-auto max-w-7xl px-4 py-8;
+  }
+
+  /* Shell layout for sidebar */
+  .shell {
+    @apply flex min-h-screen;
+  }
+
+  .content {
+    @apply flex-1 p-8;
+  }
+
+  /* Page structure */
+  .page {
+    @apply max-w-7xl mx-auto;
+  }
+
+  .page-header {
+    @apply flex items-center justify-between mb-6;
+  }
+
+  .page-title {
+    @apply text-3xl font-bold tracking-tight;
+  }
+
+  .section-title {
+    @apply text-xl font-semibold mb-2;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-card text-card-foreground rounded-lg border border-border p-6 shadow-sm;
+  }
+
+  .cards {
+    @apply gap-4;
+  }
+
+  .card.client {
+    @apply hover:border-primary transition-colors cursor-pointer;
+  }
+
+  .client-name {
+    @apply font-semibold text-lg mb-2;
+  }
+
+  .client-foot {
+    @apply text-sm;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium 
+           transition-colors focus-visible:outline-none focus-visible:ring-2 
+           focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
+           border border-border bg-background hover:bg-muted
+           h-10 px-4 py-2;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 border-primary;
+  }
+
+  /* Form elements */
+  .input {
+    @apply flex h-10 w-full rounded-md border border-border bg-background 
+           px-3 py-2 text-sm ring-offset-background 
+           file:border-0 file:bg-transparent file:text-sm file:font-medium
+           placeholder:text-muted-foreground 
+           focus-visible:outline-none focus-visible:ring-2 
+           focus-visible:ring-primary focus-visible:ring-offset-2
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  textarea.input {
+    @apply min-h-[80px] resize-y;
+  }
+
+  select.input {
+    @apply appearance-none bg-no-repeat bg-right pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  }
+
+  /* Navigation */
+  .tabbar {
+    @apply flex gap-2 mb-6 border-b border-border pb-2;
+  }
+
+  /* Grid layouts */
+  .cards {
+    @apply grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .kpis {
+    @apply grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .row {
+    @apply flex gap-4 flex-wrap;
+  }
+
+  .col {
+    @apply flex-1 min-w-0;
+  }
+
+  /* Text utilities */
+  .muted {
+    @apply text-muted-foreground;
+  }
+
+  .hint {
+    @apply text-sm text-center mt-4;
+  }
+
+  .link {
+    @apply text-primary hover:underline;
+  }
+
+  .notice {
+    @apply p-3 rounded-md bg-primary/10 text-primary border border-primary/20;
+  }
+
+  .alert {
+    @apply p-3 rounded-md bg-red-50 text-red-900 border border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-900/20;
+  }
+
+  /* Auth/Login pages */
+  .login-bg {
+    @apply min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4;
+  }
+
+  .auth-wrap {
+    @apply w-full max-w-md;
+  }
+
+  .brand {
+    @apply flex items-center gap-3 mb-8 justify-center;
+  }
+
+  .brand .flag {
+    @apply w-8 h-8 rounded-full bg-primary;
+  }
+
+  .brand span {
+    @apply text-2xl font-bold;
+  }
+
+  .auth-card {
+    @apply bg-card text-card-foreground rounded-lg border border-border p-8 shadow-lg;
+  }
+
+  .headline {
+    @apply text-2xl font-bold mb-2;
+  }
+
+  .subtext {
+    @apply text-muted-foreground mb-6;
+  }
+
+  .form-grid {
+    @apply space-y-4;
+  }
+
+  .login-footer {
+    @apply text-center text-sm text-muted-foreground mt-8;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50;
+  }
+
+  .modal {
+    @apply bg-card text-card-foreground rounded-lg border border-border 
+           shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6;
+  }
+
+  /* Utility spacing */
+  .space-y-1 > * + * {
+    @apply mt-1;
+  }
+
+  .space-y-4 > * + * {
+    @apply mt-4;
+  }
+    /* Add these styles to your globals.css at the end */
+
+/* Sidebar */
+.sidebar {
+  @apply w-64 h-screen bg-card border-r border-border flex flex-col fixed left-0 top-0;
+}
+
+.sidebar-header {
+  @apply p-6 border-b border-border;
+}
+
+.sidebar-logo {
+  @apply flex items-center gap-3;
+}
+
+.sidebar-logo-icon {
+  @apply w-10 h-10 bg-primary rounded-lg flex items-center justify-center;
+}
+
+.sidebar-logo-text {
+  @apply text-xl font-bold;
+}
+
+.sidebar-nav {
+  @apply flex-1 px-3 py-4 space-y-1 overflow-y-auto;
+}
+
+.sidebar-link {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+         text-foreground/70 hover:text-foreground hover:bg-muted
+         transition-colors;
+}
+
+.sidebar-link.active {
+  @apply bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary;
+}
+
+.sidebar-footer {
+  @apply p-6 border-t border-border text-xs text-muted-foreground;
+}
+
+/* Update content to account for fixed sidebar */
+.content {
+  @apply flex-1 p-8 ml-64;
+}
+    /* Calendar Toolbar Styles - Add to globals.css */
+
+.toolbar {
+  @apply flex items-center justify-between mb-4 flex-wrap gap-4;
+}
+
+.toolbar .seg {
+  @apply flex gap-2;
+}
+
+.btn-tab {
+  @apply px-4 py-2 text-sm font-medium rounded-md
+         border border-border bg-background
+         hover:bg-muted transition-colors;
+}
+
+.btn-tab.active {
+  @apply bg-primary text-primary-foreground border-primary;
+}
+
+/* React Big Calendar Overrides */
+.rbc-calendar {
+  @apply bg-card rounded-lg border border-border p-4;
+}
+
+.rbc-header {
+  @apply py-3 font-semibold text-sm border-b border-border;
+}
+
+.rbc-today {
+  @apply bg-primary/10;
+}
+
+.rbc-event {
+  @apply bg-primary text-primary-foreground rounded px-2 py-1;
+}
+
+.rbc-event-label {
+  @apply text-xs;
+}
+
+.rbc-toolbar {
+  @apply mb-4;
+}
+
+.rbc-toolbar button {
+  @apply px-3 py-2 text-sm border border-border rounded hover:bg-muted transition-colors;
+}
+
+.rbc-toolbar button.rbc-active {
+  @apply bg-primary text-primary-foreground border-primary;
+}
+
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view {
+  @apply border border-border rounded;
+}
+
+.rbc-time-slot {
+  @apply border-t border-border;
+}
+
+.rbc-day-slot .rbc-time-slot {
+  @apply border-t border-border/50;
+}
+}

@@ -1,25 +1,22 @@
 "use client";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../../types/database";
 
-import { getSupabaseCredentials } from "./env";
+let _client: SupabaseClient<Database> | null = null;
 
-let client: SupabaseClient | null = null;
+export function createSupabaseBrowserClient(): SupabaseClient<Database> {
+  if (_client) return _client;
 
-export const supabaseBrowser = (): SupabaseClient => {
-  if (client) return client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const { url, anonKey } = getSupabaseCredentials();
+  if (!url || !anonKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
 
-  console.info("[supabaseBrowser] creating client", {
-    url: url ? "present" : "MISSING",
-    key: anonKey ? "present" : "MISSING",
-  });
+  _client = createClient<Database>(url, anonKey);
+  return _client;
+}
 
-  client = createBrowserClient(url, anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true },
-  });
-
-  return client;
-};
+export const supabaseBrowser = createSupabaseBrowserClient;
