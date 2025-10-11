@@ -38,7 +38,7 @@ export default async function CalendarPage() {
   const courseOptionsByOrg: Record<string, any[]> = {};
   const templateOptionsByOrg: Record<string, any[]> = {};
   const orgMap: Record<string, string> = {};
-  const courseMap: Record<string, string> = {};
+  const courseMap: Record<string, any> = {};
   const templateMap: Record<string, string> = {};
   const campaignMap: Record<string, any> = {};
 
@@ -54,7 +54,7 @@ export default async function CalendarPage() {
     const [{ data: allCourses }, { data: allTemplates }, { data: allCampaigns }] = await Promise.all([
       supabase
         .from('courses')
-        .select('id, name, org_id, timezone')
+        .select('id, name, org_id, timezone, send_window_start, send_window_end')
         .order('name', { ascending: true }),
       supabase
         .from('rcs_templates')
@@ -62,7 +62,7 @@ export default async function CalendarPage() {
         .order('name', { ascending: true }),
       supabase
         .from('campaigns')
-        .select('id, org_id, course_id, template_id, name, description, scheduled_at, status')
+        .select('id, org_id, course_id, template_id, name, description, scheduled_at, status, drip_enabled, drip_batch_size, drip_interval_minutes')
     ]);
 
     courses = allCourses ?? [];
@@ -72,7 +72,7 @@ export default async function CalendarPage() {
     const [{ data: filteredCourses }, { data: filteredTemplates }, { data: filteredCampaigns }] = await Promise.all([
       supabase
         .from('courses')
-        .select('id, name, org_id, timezone')
+        .select('id, name, org_id, timezone, send_window_start, send_window_end')
         .in('org_id', orgIds)
         .order('name', { ascending: true }),
       supabase
@@ -82,7 +82,7 @@ export default async function CalendarPage() {
         .order('name', { ascending: true }),
       supabase
         .from('campaigns')
-        .select('id, org_id, course_id, template_id, name, description, scheduled_at, status')
+        .select('id, org_id, course_id, template_id, name, description, scheduled_at, status, drip_enabled, drip_batch_size, drip_interval_minutes')
         .in('org_id', orgIds)
     ]);
 
@@ -94,7 +94,7 @@ export default async function CalendarPage() {
   // Build maps
   for (const course of courses) {
     if (!course?.org_id || !course?.id || !course?.name) continue;
-    courseMap[course.id] = course.name;
+    courseMap[course.id] = course;
     if (!courseOptionsByOrg[course.org_id]) {
       courseOptionsByOrg[course.org_id] = [];
     }
@@ -102,6 +102,8 @@ export default async function CalendarPage() {
       id: course.id,
       name: course.name,
       timezone: course.timezone ?? 'UTC',
+      send_window_start: course.send_window_start ?? null,
+      send_window_end: course.send_window_end ?? null,
     });
   }
 
@@ -126,8 +128,8 @@ export default async function CalendarPage() {
   const enrichedEvents = eventsRaw.map((e) => {
     const campaign = e.campaign_id ? campaignMap[e.campaign_id] : null;
     
-    // Get course to extract timezone
-    const course = e.course_id ? courseOptionsByOrg[e.org_id]?.find(c => c.id === e.course_id) : null;
+    // Get course to extract timezone and send window
+    const course = e.course_id ? courseMap[e.course_id] : null;
     
     return {
       id: e.id,
@@ -141,11 +143,16 @@ export default async function CalendarPage() {
       templateId: campaign?.template_id ?? '',
       status: e.event_status,
       orgName: orgMap[e.org_id] ?? 'Unknown',
-      courseName: e.course_id ? (courseMap[e.course_id] ?? 'Unknown') : 'N/A',
+      courseName: course?.name ?? 'Unknown',
       templateName: campaign?.template_id ? (templateMap[campaign.template_id] ?? 'Unknown') : 'N/A',
       scheduledAt: campaign?.scheduled_at ?? e.start_time,
       timezone: course?.timezone ?? 'UTC',
       campaignStatus: campaign?.status ?? 'unknown',
+      sendWindowStart: course?.send_window_start ?? null,
+      sendWindowEnd: course?.send_window_end ?? null,
+      dripEnabled: campaign?.drip_enabled ?? false,
+      dripBatchSize: campaign?.drip_batch_size ?? 10,
+      dripIntervalMinutes: campaign?.drip_interval_minutes ?? 5,
     };
   });
 
