@@ -1,4 +1,5 @@
 // app/agency/inbox/page.tsx
+// This file currently shows analytics but should show the Alerts/Notifications Center
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +14,6 @@ interface Notification {
   is_read: boolean;
   created_at: string;
   metadata?: any;
-  created_by?: string;
 }
 
 export default function AgencyInboxPage() {
@@ -25,7 +25,6 @@ export default function AgencyInboxPage() {
   useEffect(() => {
     fetchNotifications();
     
-    // Subscribe to real-time updates
     const channel = supabase
       .channel('agency-notifications')
       .on(
@@ -50,7 +49,6 @@ export default function AgencyInboxPage() {
     try {
       setLoading(true);
       
-      // Get current user's org_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -62,14 +60,12 @@ export default function AgencyInboxPage() {
 
       if (!profile) return;
 
-      // Build query
       let query = supabase
         .from('notifications')
         .select('*')
         .eq('org_id', profile.org_id)
         .order('created_at', { ascending: false });
 
-      // Filter for agency staff or admin roles
       if (profile.role === 'agency_staff' || profile.role === 'owner') {
         query = query.or('role_target.eq.agency_staff,role_target.eq.all');
       }
@@ -78,7 +74,7 @@ export default function AgencyInboxPage() {
         query = query.eq('is_read', false);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.limit(50);
 
       if (error) throw error;
       setNotifications(data || []);
@@ -151,38 +147,22 @@ export default function AgencyInboxPage() {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Agency Alerts Center
-          </h1>
-          <p className="text-gray-600">
-            System notifications and important updates
-          </p>
-        </div>
-
-        {/* Controls */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex items-center justify-between">
+    <div className="page">
+      <h1 className="page-title">Agency Alerts Center</h1>
+      
+      {/* Controls */}
+      <div className="card mb-4">
+        <div className="flex items-center justify-between">
           <div className="flex gap-2">
             <button
               onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-md transition ${
-                filter === 'all'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`btn ${filter === 'all' ? 'btn-primary' : ''}`}
             >
               All ({notifications.length})
             </button>
             <button
               onClick={() => setFilter('unread')}
-              className={`px-4 py-2 rounded-md transition ${
-                filter === 'unread'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`btn ${filter === 'unread' ? 'btn-primary' : ''}`}
             >
               Unread ({unreadCount})
             </button>
@@ -191,78 +171,58 @@ export default function AgencyInboxPage() {
           <button
             onClick={markAllAsRead}
             disabled={unreadCount === 0}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="btn"
           >
             Mark All as Read
           </button>
         </div>
+      </div>
 
-        {/* Notifications List */}
-        <div className="space-y-3">
-          {loading ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading notifications...</p>
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <p className="text-gray-500 text-lg">
-                {filter === 'unread' 
-                  ? '🎉 No unread notifications' 
-                  : 'No notifications yet'}
-              </p>
-            </div>
-          ) : (
-            notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`bg-white rounded-lg shadow-sm p-4 transition hover:shadow-md ${
-                  !notification.is_read ? 'border-l-4 border-blue-600' : ''
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="text-3xl">
-                    {getNotificationIcon(notification.type)}
+      {/* Notifications List */}
+      <div className="space-y-3">
+        {loading ? (
+          <div className="card text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-muted-foreground">Loading notifications...</p>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="card text-center py-8">
+            <p className="text-muted-foreground">
+              {filter === 'unread' ? '🎉 No unread notifications' : 'No notifications yet'}
+            </p>
+          </div>
+        ) : (
+          notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`card ${!notification.is_read ? 'border-l-4 border-blue-600' : ''}`}
+            >
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">{getNotificationIcon(notification.type)}</div>
+                
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-1">
+                    <h3 className="font-semibold">{notification.title}</h3>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                    </span>
                   </div>
                   
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-1">
-                      <h3 className="font-semibold text-gray-900">
-                        {notification.title}
-                      </h3>
-                      <span className="text-sm text-gray-500">
-                        {formatDistanceToNow(new Date(notification.created_at), {
-                          addSuffix: true,
-                        })}
-                      </span>
-                    </div>
-                    
-                    <p className="text-gray-600 mb-2">
-                      {notification.message}
-                    </p>
-                    
-                    {notification.metadata && (
-                      <div className="text-sm text-gray-500 bg-gray-50 rounded p-2 mt-2">
-                        <pre className="text-xs overflow-x-auto">
-                          {JSON.stringify(notification.metadata, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                    
-                    {!notification.is_read && (
-                      <button
-                        onClick={() => markAsRead(notification.id)}
-                        className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        Mark as read
-                      </button>
-                    )}
-                  </div>
+                  <p className="text-muted-foreground mb-2">{notification.message}</p>
+                  
+                  {!notification.is_read && (
+                    <button
+                      onClick={() => markAsRead(notification.id)}
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      Mark as read
+                    </button>
+                  )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
