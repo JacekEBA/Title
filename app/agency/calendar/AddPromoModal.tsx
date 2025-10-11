@@ -1,43 +1,36 @@
 'use client';
-//test
-import { useEffect, useState, type ReactNode, type FormEvent } from 'react';
 
-type FieldProps = {
-  label: string;
-  children: ReactNode;
-};
+import { useState, useEffect, type FormEvent } from 'react';
 
-function Field({ label, children }: FieldProps) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-sm font-medium">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-type OrgOption = {
-  id: string;
-  name: string;
-};
-
-type CourseOption = {
+type Course = {
   id: string;
   name: string;
   timezone: string;
 };
 
-type TemplateOption = {
+type Template = {
+  id: string;
+  name: string;
+};
+
+type Org = {
   id: string;
   name: string;
 };
 
 type AddPromoModalProps = {
-  orgOptions: OrgOption[];
-  courseOptionsByOrg: Record<string, CourseOption[]>;
-  templateOptionsByOrg: Record<string, TemplateOption[]>;
+  orgOptions: Org[];
+  courseOptionsByOrg: Record<string, Course[]>;
+  templateOptionsByOrg: Record<string, Template[]>;
   action: (formData: FormData) => Promise<void>;
 };
+
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="space-y-1">
+    <label className="text-sm font-medium block">{label}</label>
+    {children}
+  </div>
+);
 
 export default function AddPromoModal({
   orgOptions,
@@ -48,34 +41,27 @@ export default function AddPromoModal({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Form state
   const [orgId, setOrgId] = useState('');
   const [courseId, setCourseId] = useState('');
   const [templateId, setTemplateId] = useState('');
-
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [timezone, setTimezone] = useState('');
+  
+  // Drip settings
+  const [dripEnabled, setDripEnabled] = useState(false);
+  const [dripBatchSize, setDripBatchSize] = useState('10');
+  const [dripIntervalMinutes, setDripIntervalMinutes] = useState('5');
 
-  // Get courses and templates for selected org
   const courses = orgId ? (courseOptionsByOrg[orgId] ?? []) : [];
   const templates = orgId ? (templateOptionsByOrg[orgId] ?? []) : [];
-
-  // Reset dependent fields when org changes
-  useEffect(() => {
-    setCourseId('');
-    setTemplateId('');
-    setTimezone('');
-  }, [orgId]);
 
   // Update timezone when course changes
   useEffect(() => {
     const course = courses.find((c) => c.id === courseId);
-    if (!course) {
-      setTimezone('');
-      return;
-    }
-    setTimezone(course.timezone ?? 'UTC');
+    setTimezone(course?.timezone ?? '');
   }, [courseId, courses]);
 
   const resetForm = () => {
@@ -86,18 +72,20 @@ export default function AddPromoModal({
     setDescription('');
     setScheduledAt('');
     setTimezone('');
+    setDripEnabled(false);
+    setDripBatchSize('10');
+    setDripIntervalMinutes('5');
   };
 
   const handleClose = () => {
     if (loading) return;
-    resetForm();
     setOpen(false);
+    resetForm();
   };
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
 
-    // Validation
     if (!orgId) {
       alert('Please choose an Organization.');
       return;
@@ -133,6 +121,13 @@ export default function AddPromoModal({
       formData.set('description', description);
       formData.set('scheduled_at', scheduledAt);
       formData.set('timezone', timezone);
+      
+      // Add drip settings
+      formData.set('drip_enabled', dripEnabled.toString());
+      if (dripEnabled) {
+        formData.set('drip_batch_size', dripBatchSize);
+        formData.set('drip_interval_minutes', dripIntervalMinutes);
+      }
 
       await action(formData);
 
@@ -166,7 +161,7 @@ export default function AddPromoModal({
       {open && (
         <div className="modal-overlay" onClick={handleClose}>
           <div
-            className="modal"
+            className="modal max-w-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -282,6 +277,65 @@ export default function AddPromoModal({
                   disabled={loading}
                 />
               </Field>
+
+              {/* Drip Campaign Settings */}
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <input
+                    type="checkbox"
+                    id="dripEnabled"
+                    checked={dripEnabled}
+                    onChange={(e) => setDripEnabled(e.target.checked)}
+                    className="w-4 h-4"
+                    disabled={loading}
+                  />
+                  <label htmlFor="dripEnabled" className="text-sm font-medium cursor-pointer">
+                    Enable Drip Campaign (send gradually)
+                  </label>
+                </div>
+
+                {dripEnabled && (
+                  <div className="grid grid-cols-2 gap-4 mt-3 p-3 bg-muted rounded-md">
+                    <Field label="Contacts per Batch">
+                      <input
+                        type="number"
+                        value={dripBatchSize}
+                        onChange={(e) => setDripBatchSize(e.target.value)}
+                        className="input"
+                        min="1"
+                        max="1000"
+                        required
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        How many contacts to message at once
+                      </p>
+                    </Field>
+
+                    <Field label="Minutes Between Batches">
+                      <input
+                        type="number"
+                        value={dripIntervalMinutes}
+                        onChange={(e) => setDripIntervalMinutes(e.target.value)}
+                        className="input"
+                        min="1"
+                        max="1440"
+                        required
+                        disabled={loading}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Wait time before sending next batch
+                      </p>
+                    </Field>
+                  </div>
+                )}
+                
+                {dripEnabled && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    💡 Messages will be sent in batches of {dripBatchSize} every {dripIntervalMinutes} minutes
+                  </p>
+                )}
+              </div>
 
               <div className="flex justify-end gap-2 pt-4">
                 <button
