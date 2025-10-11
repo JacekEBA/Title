@@ -190,7 +190,7 @@ export default function AddPromoModal({
             className="modal max-w-3xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4 sticky top-0 bg-background pb-4 border-b border-border">
+            <div className="flex items-center justify-between mb-4 sticky top-0 bg-background pb-4 border-b border-border z-10">
               <h2 className="section-title mb-0">Schedule RCS Promo</h2>
               <button
                 type="button"
@@ -413,7 +413,7 @@ export default function AddPromoModal({
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-2 pt-4 border-t border-border sticky bottom-0 bg-background">
+              <div className="flex justify-end gap-2 pt-4 border-t border-border">
                 <button
                   type="button"
                   className="btn"
